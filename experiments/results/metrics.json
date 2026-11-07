@@ -13,7 +13,7 @@
     ],
     "notes": "Per-candidate test metrics come from models fitted on TRAIN only and are reported after selection. Inference time is measured on the validation set. 'production' is the winner refit on train+validation.",
     "tfidf_fixed": {
-      "preprocessor": "<function normalize_text at 0x0000028D0B35E0C0>",
+      "preprocessor": "<function normalize_text at 0x00000194AE7DA020>",
       "lowercase": "False",
       "token_pattern": "(?u)\\b\\w+\\b|[%$\u20ac\u00a3]",
       "min_df": "2",
@@ -63,9 +63,9 @@
           }
         }
       },
-      "train_time_s": 0.07400779999989027,
-      "inference_time_s_val_set": 0.015589099999488099,
-      "inference_ms_per_sentence": 0.021472589530975344,
+      "train_time_s": 0.0735421999997925,
+      "inference_time_s_val_set": 0.015458399999261019,
+      "inference_ms_per_sentence": 0.021292561982453193,
       "n_features": 3908,
       "n_parameters": 0,
       "search": [
@@ -162,9 +162,9 @@
           }
         }
       },
-      "train_time_s": 0.16644409999935306,
-      "inference_time_s_val_set": 0.02740540000013425,
-      "inference_ms_per_sentence": 0.037748484848669765,
+      "train_time_s": 0.1484309999996185,
+      "inference_time_s_val_set": 0.024288099999466795,
+      "inference_ms_per_sentence": 0.033454683194857844,
       "n_features": 11737,
       "n_parameters": 35214,
       "search": [
@@ -332,9 +332,9 @@
           }
         }
       },
-      "train_time_s": 0.15076640000006591,
-      "inference_time_s_val_set": 0.0246807000003173,
-      "inference_ms_per_sentence": 0.0339954545458916,
+      "train_time_s": 0.14971759999934875,
+      "inference_time_s_val_set": 0.025693100000353297,
+      "inference_ms_per_sentence": 0.0353899449040679,
       "n_features": 11737,
       "n_parameters": 35214,
       "search": [
@@ -503,9 +503,9 @@
           }
         }
       },
-      "train_time_s": 0.41641940000044997,
-      "inference_time_s_val_set": 0.024457100000290666,
-      "inference_ms_per_sentence": 0.03368746556513866,
+      "train_time_s": 0.41959769999994023,
+      "inference_time_s_val_set": 0.02389019999827724,
+      "inference_ms_per_sentence": 0.032906611567874985,
       "n_features": 11737,
       "n_parameters": 35214,
       "search": [
@@ -764,9 +764,9 @@
           }
         }
       },
-      "train_time_s": 0.17877839999891876,
-      "inference_time_s_val_set": 0.02490159999979369,
-      "inference_ms_per_sentence": 0.034299724517622164,
+      "train_time_s": 0.2148563999999169,
+      "inference_time_s_val_set": 0.026158299999224255,
+      "inference_ms_per_sentence": 0.03603071625237501,
       "n_features": 11737,
       "n_parameters": 35214,
       "search": [
@@ -1025,9 +1025,9 @@
           }
         }
       },
-      "train_time_s": 0.16597290000026987,
-      "inference_time_s_val_set": 0.02527870000085386,
-      "inference_ms_per_sentence": 0.03481914600668576,
+      "train_time_s": 0.16786820000015723,
+      "inference_time_s_val_set": 0.024755500000537722,
+      "inference_ms_per_sentence": 0.034098484849225515,
       "n_features": 11737,
       "n_parameters": 35214,
       "search": [
@@ -1277,8 +1277,8 @@
         }
       }
     },
-    "train_time_s": 0.2824717999992572,
-    "inference_ms_per_sentence_test": 0.03359504132299474,
+    "train_time_s": 0.2163144000005559,
+    "inference_ms_per_sentence_test": 0.03373347107431987,
     "classification_report_test": "              precision    recall  f1-score   support\n\n    negative      0.700     0.692     0.696        91\n     neutral      0.809     0.875     0.841       431\n    positive      0.747     0.623     0.679       204\n\n    accuracy                          0.781       726\n   macro avg      0.752     0.730     0.739       726\nweighted avg      0.778     0.781     0.777       726\n",
     "confusion_matrix_test": [
       [

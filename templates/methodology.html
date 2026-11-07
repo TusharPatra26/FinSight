@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Methodology{% endblock %}
+{% block content %}
+<h1>Methodology</h1>
+<p>Dataset: Financial PhraseBank, 50%-agreement subset (Malo et al., 2014; CC BY-NC-SA 3.0). {{ dataset.rows }} sentences after cleaning.</p>
+{% if meta %}<p>Model: {{ meta.model_name }}; TF-IDF {{ meta.feature_extraction.ngram_range }} n-grams; seed {{ meta.random_seed }};
+split {{ meta.training_split.n_train }}/{{ meta.training_split.n_validation }}/{{ meta.training_split.n_test }}.</p>{% endif %}
+<p>Full EDA: <code>analysis/eda.ipynb</code> and <code>analysis/eda_report.md</code>. (The designed methodology page arrives in Milestone 5.)</p>
+{% endblock %}

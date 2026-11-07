@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Overview</h1>
+{% if model_error %}<p class="error">{{ model_error }}</p>{% endif %}
+{% if meta %}
+<p>Production model: <strong>{{ meta.model_name }}</strong> ({{ model.model_id }}) &mdash; test macro-F1 {{ '%.3f'|format(meta.final_test_metrics.macro_f1) }},
+accuracy {{ '%.3f'|format(meta.final_test_metrics.accuracy) }}</p>
+{% endif %}
+<p>Training corpus: {{ dataset.rows }} sentences. Analyses stored: {{ total }}.</p>
+<table><tr><th>Class</th><th>Corpus %</th><th>Your analyses</th></tr>
+{% for name, d in dataset.distribution.items() %}<tr><td>{{ name }}</td><td>{{ d.percent }}%</td><td>{{ counts[name].count }} ({{ counts[name].percent }}%)</td></tr>{% endfor %}</table>
+<h3>Recent analyses</h3>
+{% if recent %}<ul>{% for r in recent %}<li>{{ r.sentiment }} &mdash; {{ r.input_text[:100] }}</li>{% endfor %}</ul>{% else %}<p>No analyses yet. Try the <a href="{{ url_for('sentiment') }}">Sentiment Studio</a>.</p>{% endif %}
+{% endblock %}

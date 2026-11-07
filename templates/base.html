@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FinSight{% endblock %}</title>
+  <style>body{font-family:system-ui,sans-serif;max-width:980px;margin:1rem auto;padding:0 1rem;background:#F2EFE6;color:#252724}
+  nav a{margin-right:1rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #D9D4C8;padding:4px 8px;text-align:left;font-size:.9rem}
+  .error{color:#914D4B}.ok{color:#34483B}textarea{width:100%}</style>
+</head>
+<body>
+  <nav>
+    <strong>FinSight</strong>
+    <a href="{{ url_for('index') }}">Overview</a><a href="{{ url_for('sentiment') }}">Sentiment Studio</a>
+    <a href="{{ url_for('market_pulse') }}">Market Pulse</a><a href="{{ url_for('model_lab') }}">Model Lab</a>
+    <a href="{{ url_for('history') }}">History</a><a href="{{ url_for('methodology') }}">Methodology</a>
+  </nav>
+  <hr>
+  {% for category, message in get_flashed_messages(with_categories=true) %}<p class="{{ category }}">{{ message }}</p>{% endfor %}
+  {% block content %}{% endblock %}
+  <hr><small>FinSight is a financial-NLP research tool. It is not investment advice.</small>
+</body>
+</html>

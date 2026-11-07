@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Sentiment Studio{% endblock %}
+{% block content %}
+<h1>Sentiment Studio</h1>
+{% if not model %}<p class="error">The model is not available. Run <code>python -m experiments.run_experiments</code> first.</p>{% endif %}
+<h3>Single text</h3>
+<form method="post"><textarea name="text" rows="3" maxlength="2000" placeholder="Paste a financial news sentence">{{ text }}</textarea><br><button>Analyse</button></form>
+{% if single %}
+<h3>Result</h3>
+<p><strong>{{ single.sentiment }}</strong> &mdash; score {{ single.score }}; confidence margin {{ single.margin }} ({{ single.margin_band }} band)</p>
+<p><small>{{ single.score_type_label }}</small></p>
+<table><tr>{% for k, v in single.scores.items() %}<th>{{ k }}</th>{% endfor %}</tr><tr>{% for k, v in single.scores.items() %}<td>{{ v }}</td>{% endfor %}</tr></table>
+{% for w in single.warnings %}<p class="error">{{ w }}</p>{% endfor %}
+<p>Words supporting "{{ single.sentiment }}": {% for t in single.explanation.supporting %}{{ t.term }} ({{ t.weight }}){% if not loop.last %}, {% endif %}{% else %}none{% endfor %}</p>
+<p>Words working against it: {% for t in single.explanation.opposing %}{{ t.term }} ({{ t.weight }}){% if not loop.last %}, {% endif %}{% else %}none{% endfor %}</p>
+<p><small>{{ single.explanation.note }}</small></p>
+{% endif %}
+<h3>CSV batch</h3>
+<form method="post" enctype="multipart/form-data">
+  <input type="file" name="file" accept=".csv"> Text column (optional): <input name="text_column" placeholder="auto-detect"> <button>Analyse CSV</button>
+</form>
+<p><small>CSV with a header row; max 2 MB and 5,000 rows.</small></p>
+{% if batch %}
+<h3>Batch results: {{ batch.filename }}</h3>
+<p>Analysed {{ batch.report.rows_analysed }} of {{ batch.report.rows_in_file }} rows (column "{{ batch.report.text_column }}"; skipped empty {{ batch.report.skipped_empty }}, too long {{ batch.report.skipped_too_long }}).
+<a href="{{ url_for('download_batch', batch_id=batch.batch_id) }}">Download results CSV</a></p>
+<table><tr><th>Class</th><th>Count</th><th>%</th></tr>{% for name, d in batch.summary.distribution.items() %}<tr><td>{{ name }}</td><td>{{ d.count }}</td><td>{{ d.percent }}</td></tr>{% endfor %}</table>
+<table><tr><th>Text</th><th>Sentiment</th><th>Score</th><th>Band</th><th>Key words</th></tr>
+{% for r in batch.results[:50] %}<tr><td>{{ r.text[:120] }}</td><td>{{ r.sentiment }}</td><td>{{ r.score }}</td><td>{{ r.margin_band }}</td><td>{% for t in r.explanation.supporting[:3] %}{{ t.term }}{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>{% endfor %}</table>
+{% if batch.results|length > 50 %}<p>Showing the first 50; the download contains all.</p>{% endif %}
+{% endif %}
+{% endblock %}

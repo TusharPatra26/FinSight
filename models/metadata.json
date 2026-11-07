@@ -25,7 +25,7 @@
       ]
     }
   },
-  "training_date_utc": "2026-11-07T21:08:58+00:00",
+  "training_date_utc": "2026-11-07T21:38:50+00:00",
   "dataset": {
     "source": "takala/financial_phrasebank",
     "configuration": "sentences_50agree",
@@ -95,6 +95,25 @@
         "support": 204
       }
     }
+  },
+  "margin_bands": {
+    "signal": "top-two gap of decision_function",
+    "cutpoints": [
+      0.598,
+      1.2848
+    ],
+    "method": "5-fold out-of-fold scores on train+validation; bands are terciles of the margin",
+    "n_by_band": {
+      "Low": 1370,
+      "Medium": 1370,
+      "High": 1370
+    },
+    "accuracy_by_band": {
+      "Low": 0.5832,
+      "Medium": 0.8088,
+      "High": 0.9394
+    },
+    "note": "Margin bands are an empirical reliability indicator, not calibrated probabilities."
   },
   "class_labels": [
     "negative",

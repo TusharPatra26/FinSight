@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Market Pulse{% endblock %}
+{% block content %}
+<h1>Market Pulse</h1>
+{% if n == 0 %}<p>No analyses yet. Analyse some text in the <a href="{{ url_for('sentiment') }}">Sentiment Studio</a> to see analytics here.</p>
+{% else %}
+<h3>Sentiment of your {{ n }} analyses</h3>
+<table><tr><th>Class</th><th>Count</th><th>%</th></tr>{% for k, d in dist.items() %}<tr><td>{{ k }}</td><td>{{ d.count }}</td><td>{{ d.percent }}</td></tr>{% endfor %}</table>
+<h3>Financial vocabulary (hand-written lexicon)</h3>
+<table><tr><th>Category</th><th>Texts</th><th>%</th></tr>{% for c in vocab.categories %}<tr><td>{{ c.category }}</td><td>{{ c.texts }}</td><td>{{ c.percent }}</td></tr>{% endfor %}</table>
+<h3>Top words by predicted sentiment</h3>
+{% for k, ws in words.items() %}<p><strong>{{ k }}:</strong> {% for w in ws %}{{ w.word }} ({{ w.count }}){% if not loop.last %}, {% endif %}{% endfor %}</p>{% endfor %}
+{% endif %}
+<h3>Reference: training corpus</h3>
+<p>{{ dataset.rows }} sentences; {% for k, d in dataset.distribution.items() %}{{ k }} {{ d.percent }}%{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+{% endblock %}

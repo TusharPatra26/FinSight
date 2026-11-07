@@ -27,5 +27,13 @@ VALIDATION_REPORT = DATA_PROCESSED_DIR / "validation_report.json"
 LABEL_NAMES = ["negative", "neutral", "positive"]
 LABEL_TO_ID = {name: i for i, name in enumerate(LABEL_NAMES)}
 
+# --- Application limits ------------------------------------------------------
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024     # 2 MB per uploaded CSV
+MAX_TEXT_CHARS = 2000                  # longest accepted single text
+MAX_BATCH_ROWS = 5000                  # most rows accepted in one CSV
+ALLOWED_UPLOAD_EXTENSIONS = {".csv"}
+MODEL_PATH = MODELS_DIR / "best_model.joblib"
+METADATA_PATH = MODELS_DIR / "metadata.json"
+
 # --- Reproducibility ---------------------------------------------------------
 RANDOM_SEED = 42

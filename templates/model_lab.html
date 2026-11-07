@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Model Laboratory{% endblock %}
+{% block content %}
+<h1>Model Laboratory</h1>
+{% if not exp.available %}<p class="error">No experiment results found. Run <code>python -m experiments.run_experiments</code>.</p>
+{% else %}
+<p>Winner: <strong>{{ exp.metrics.winner }}</strong> (selected on validation macro-F1; test set not used for selection).</p>
+<table><tr><th>Model</th><th>Selected</th><th>CV macro-F1</th><th>Val macro-F1</th><th>Test accuracy</th><th>Test macro-F1</th><th>Test weighted-F1</th><th>Train s</th><th>ms/sentence</th></tr>
+{% for r in exp.comparison %}<tr><td>{{ r.model }}</td><td>{{ 'yes' if r.selected else '' }}</td><td>{{ '%.3f'|format(r.cv_macro_f1_mean) }}</td><td>{{ '%.3f'|format(r.val_macro_f1) }}</td><td>{{ '%.3f'|format(r.test_accuracy) }}</td><td>{{ '%.3f'|format(r.test_macro_f1) }}</td><td>{{ '%.3f'|format(r.test_weighted_f1) }}</td><td>{{ '%.2f'|format(r.train_time_s) }}</td><td>{{ '%.3f'|format(r.inference_ms_per_sentence) }}</td></tr>{% endfor %}</table>
+<h3>Production model on the held-out test set</h3>
+<pre>{{ exp.metrics.production.classification_report_test }}</pre>
+{% endif %}
+{% endblock %}

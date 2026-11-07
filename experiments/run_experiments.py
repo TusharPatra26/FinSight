@@ -24,6 +24,7 @@ import config
 from experiments import evaluation as ev
 from experiments.model_registry import CANDIDATES, TFIDF_FIXED, build_pipeline, full_grid
 from src import data as D
+from src.inference import margin_from_scores
 
 
 def _json_params(params: dict) -> dict:
@@ -32,6 +33,27 @@ def _json_params(params: dict) -> dict:
 
 def _rank_key(r):  # higher val macro-F1, then higher CV macro-F1 (rounded to 4 dp to avoid float noise)
     return (-round(r["val_macro_f1"], 4), -round(r["cv_macro_f1_mean"], 4))
+
+
+def _margin_bands(name, params, X, y, cv) -> dict:
+    """Split the winner's confidence margin (top score minus runner-up) into Low/Medium/High terciles using
+    5-fold out-of-fold scores, and measure the real accuracy inside each band. Used by src/inference.py."""
+    import numpy as np
+    from sklearn.model_selection import cross_val_predict
+    pipe = build_pipeline(name).set_params(**params)
+    method = "predict_proba" if hasattr(pipe.named_steps["clf"], "predict_proba") else "decision_function"
+    S = cross_val_predict(pipe, X, y, cv=cv, method=method)
+    margins = margin_from_scores(S)
+    pred = S.argmax(axis=1)
+    lo, hi = (float(q) for q in np.quantile(margins, [1 / 3, 2 / 3]))
+    band = np.where(margins < lo, 0, np.where(margins < hi, 1, 2))
+    yv = np.asarray(y)
+    names = ("Low", "Medium", "High")
+    return {"signal": f"top-two gap of {method}", "cutpoints": [round(lo, 4), round(hi, 4)],
+            "method": "5-fold out-of-fold scores on train+validation; bands are terciles of the margin",
+            "n_by_band": {n: int((band == i).sum()) for i, n in enumerate(names)},
+            "accuracy_by_band": {n: round(float((pred[band == i] == yv[band == i]).mean()), 4) for i, n in enumerate(names)},
+            "note": "Margin bands are an empirical reliability indicator, not calibrated probabilities."}
 
 
 def main() -> None:
@@ -114,6 +136,10 @@ def main() -> None:
     ev.plot_confusion(ev.conf_matrix(yte, pf), f"PRODUCTION: {winner} (train+validation) - test set", config.CONFUSION_DIR / f"production_{winner}.png")
     print(f"PRODUCTION model test: accuracy={final_metrics['accuracy']:.4f} macroF1={final_metrics['macro_f1']:.4f} weightedF1={final_metrics['weighted_f1']:.4f}")
 
+    # Margin bands for the app's confidence indicator: out-of-fold scores on train+validation ONLY (test untouched).
+    margin_bands = _margin_bands(winner, best_params, X[trval], y[trval], cv)
+    print("Margin bands (out-of-fold, train+val):", margin_bands["cutpoints"], margin_bands["accuracy_by_band"])
+
     tf = final.named_steps["tfidf"]
     metadata = {
         "model_name": winner,
@@ -131,6 +157,7 @@ def main() -> None:
         "validation_score": {"macro_f1": results[winner]["validation"]["macro_f1"], "accuracy": results[winner]["validation"]["accuracy"],
                              "note": "model fitted on train only, scored on validation", "cv_macro_f1_mean": results[winner]["cv_macro_f1_mean"]},
         "final_test_metrics": final_metrics,
+        "margin_bands": margin_bands,
         "class_labels": config.LABEL_NAMES, "label_ids": ev.LABEL_IDS,
         "environment": {"python": platform.python_version(), "scikit_learn": sklearn.__version__},
     }
