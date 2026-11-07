@@ -7,8 +7,10 @@ their measured accuracy come from cross-validation on train+validation and are s
 models/metadata.json (see experiments/run_experiments.py). If the promoted model ever has
 `predict_proba`, probabilities are reported instead and labelled as such.
 """
+import hashlib
 import json
 import threading
+from pathlib import Path
 
 import joblib
 import numpy as np
@@ -94,7 +96,8 @@ class SentimentModel:
         self._classes = list(steps["clf"].classes_)
         self._features = steps["tfidf"].get_feature_names_out()
         self.model_name = self.metadata["model_name"]
-        self.model_id = f"{self.model_name}@{self.metadata['training_date_utc'][:10]}"
+        # Identifies this exact model file without any date: name + first 8 hex digits of the artifact's SHA-256.
+        self.model_id = f"{self.model_name}-{hashlib.sha256(Path(model_path).read_bytes()).hexdigest()[:8]}"
         self.bands = self.metadata.get("margin_bands")
 
     # ------------------------------------------------------------------ public API

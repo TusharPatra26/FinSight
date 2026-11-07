@@ -37,7 +37,7 @@ The project's goals are the engineering discipline around the model: a thorough 
 | Data science | pandas, NumPy, SciPy, Matplotlib, Seaborn |
 | Machine learning | scikit-learn (Pipelines, TF-IDF), joblib |
 | NLP | NLTK (stopword list for EDA), TF-IDF n-grams |
-| Frontend | HTML5, CSS3, vanilla JavaScript, Chart.js 4.4.1 (bundled locally, MIT) |
+| Frontend | HTML5, CSS3, vanilla JavaScript, Chart.js 4.4.1 (bundled locally, MIT), IBM Plex Serif and IBM Plex Sans (bundled locally in `static/fonts/`, SIL Open Font License 1.1; the Overview page keeps its own type, every other page uses IBM Plex) |
 | Testing | pytest, pytest-cov |
 
 Deliberately absent: FastAPI, React/Next.js, any external API, any LLM service.
@@ -206,7 +206,7 @@ If a notebook fails with `ModuleNotFoundError`, Jupyter picked a kernel from ano
 python -m experiments.run_experiments
 ```
 
-Takes about one minute. It tunes all six candidates, selects the winner, writes `experiments/results/` (`comparison.csv`, `metrics.json`, `comparison.png`, `confusion_matrices/`), then **promotes** the winner to `models/best_model.joblib` and `models/metadata.json`. Only the promoted model is saved. The run is deterministic: the same data and library versions give the same metrics (only timings and the training date change). Optionally re-verify with `analysis/model_experiments.ipynb`.
+Takes about one minute. It tunes all six candidates, selects the winner, writes `experiments/results/` (`comparison.csv`, `metrics.json`, `comparison.png`, `confusion_matrices/`), then **promotes** the winner to `models/best_model.joblib` and `models/metadata.json`. Only the promoted model is saved. The run is deterministic: the same data and library versions give the same metrics (only timings change). Optionally re-verify with `analysis/model_experiments.ipynb`.
 
 ## 15. Running the web application
 
@@ -254,7 +254,7 @@ python app.py
 python -m pytest -q
 ```
 
-**Verified.** This workflow was run end to end from an export of the repository in a brand-new virtual environment (Windows 11, Python 3.13, packages installed from `requirements.txt`): the forced dataset re-download reproduced the raw and processed files byte-for-byte; the EDA notebook ran without errors and gave identical output on two consecutive runs; the experiments reproduced every metric, the winning model's predictions and all confusion-matrix images exactly (only timings and the training date differ); the app served all six pages, single and CSV analysis, and downloads; and all 108 tests passed.
+**Verified.** This workflow was run end to end from an export of the repository in a brand-new virtual environment (Windows 11, Python 3.13, packages installed from `requirements.txt`): the forced dataset re-download reproduced the raw and processed files byte-for-byte; the EDA notebook ran without errors and gave identical output on two consecutive runs; the experiments reproduced every metric, the winning model's predictions and all confusion-matrix images exactly (only timings differ); the app served all six pages, single and CSV analysis, and downloads; and all 108 tests passed.
 
 ## 18. Limitations
 

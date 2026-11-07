@@ -55,7 +55,8 @@ def test_api_predict_returns_expected_format_and_persists(client, app):
     assert len(rows) == 1
     row = rows[0]
     assert row["input_text"] == POS and row["sentiment"] == "positive" and row["source"] == "single"
-    assert row["model_id"].startswith("LinearSVC@") and row["created_at"] and isinstance(row["score"], float)
+    import re
+    assert re.fullmatch(r"LinearSVC-[0-9a-f]{8}", row["model_id"]) and row["created_at"] and isinstance(row["score"], float)
 
 
 @pytest.mark.parametrize("payload", [{}, {"text": ""}, {"text": "   "}, {"text": 5}, {"text": None}, {"text": "x" * 2001}])
@@ -248,12 +249,16 @@ def test_pages_are_responsive_accessible_and_offline(client, path):
     import re
     page = client.get(path).data.decode()
     assert 'name="viewport"' in page and '<html lang="en">' in page and 'id="main"' in page
-    assert not re.findall(r'(?:src|href)="https?://', page), "pages must not load external resources"
+    # Nothing may be LOADED from the internet (scripts, stylesheets, images); outbound <a> links are allowed but must be safe.
+    assert not re.findall(r'<(?:script|img|link)\b[^>]*\b(?:src|href)="https?://', page), "pages must not load external resources"
+    for tag in re.findall(r'<a\b[^>]*href="https?://[^>]*>', page):
+        assert 'rel="noopener noreferrer"' in tag, tag
     assert "chart.umd.js" in page and "/static/css/style.css" in page
 
 
 def test_static_assets_and_figures_are_served(client):
     for p in ("/static/css/style.css", "/static/js/main.js", "/static/js/charts.js", "/static/vendor/chart.umd.js",
+              "/static/fonts/ibm-plex-serif-latin-500-normal.woff2", "/static/fonts/ibm-plex-sans-latin-400-normal.woff2",
               "/analysis-figures/B_class_distribution.png"):
         assert client.get(p).status_code == 200, p
     assert client.get("/analysis-figures/eda.ipynb").status_code == 404
@@ -279,6 +284,63 @@ def test_single_result_page_shows_scores_band_and_words(client):
     page = client.post("/sentiment", data={"text": NEG}).data.decode()
     assert "not probabilities" in page and "badge--" in page and "Influential words" in page and "decreased" in page
     assert "correct" in page and "% of the time" in page
+
+
+def test_ibm_plex_is_bundled_and_scoped_to_every_page_except_the_overview(client):
+    from pathlib import Path
+    fonts = Path(__file__).resolve().parent.parent / "static" / "fonts"
+    woff = sorted(p.name for p in fonts.glob("*.woff2"))
+    assert len(woff) == 8 and sum(n.startswith("ibm-plex-serif") for n in woff) == 3 and sum(n.startswith("ibm-plex-sans") for n in woff) == 5
+    assert all(p.read_bytes()[:4] == b"wOF2" for p in fonts.glob("*.woff2"))             # genuine woff2 files
+    assert (fonts / "OFL-IBM-Plex-Sans.txt").exists() and (fonts / "OFL-IBM-Plex-Serif.txt").exists()   # licences travel with the fonts
+    css = client.get("/static/css/style.css").data.decode()
+    assert css.count("@font-face") == 8 and 'font-family: "IBM Plex Serif"' in css and 'font-family: "IBM Plex Sans"' in css
+    assert "body:not(.page-index)" in css and "font-display: swap" in css
+    assert client.get("/static/fonts/ibm-plex-sans-latin-400-normal.woff2").mimetype == "font/woff2"
+    assert 'class="page-index"' in client.get("/").data.decode()                           # the Overview keeps its original type
+    for path, cls in (("/sentiment", "page-sentiment"), ("/market-pulse", "page-market_pulse"), ("/model-lab", "page-model_lab"),
+                      ("/history", "page-history"), ("/methodology", "page-methodology"), ("/nope", "page-other")):
+        assert f'class="{cls}"' in client.get(path).data.decode(), path
+
+
+def test_footer_is_structured_informative_and_dateless(client):
+    import re
+    page = client.get("/history").data.decode()
+    footer = page[page.index("<footer"):page.index("</footer>")]
+    for text in ("Explore", "Research", "Data &amp; credits", "Production model", "LinearSVC", "test macro-F1", "not investment advice",
+                 "Runs locally", "Back to top", "Financial PhraseBank", "CC BY-NC-SA 3.0", "IBM Plex"):
+        assert text in footer, text
+    for endpoint in ("/", "/sentiment", "/market-pulse", "/model-lab", "/history", "/methodology#limits", "/methodology#dataset"):
+        assert f'href="{endpoint}"' in footer, endpoint
+    assert not re.search(r"\b(?:19|20)\d\d\b", footer), "footer must not contain any year or date"
+    assert "&copy;" not in footer and "©" not in footer
+
+
+def test_no_project_dates_in_published_files():
+    """The project date must not appear in the UI, metadata, notebooks, results or documentation."""
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    files = [root / "README.md", root / "app.py", root / "config.py", root / "models" / "metadata.json", root / "experiments" / "results" / "metrics.json",
+             root / "experiments" / "results" / "comparison.csv", root / "static" / "css" / "style.css"]
+    for pattern in ("templates/*.html", "src/*.py", "database/*.py", "experiments/*.py", "analysis/*.ipynb", "static/js/*.js"):
+        files += sorted(root.glob(pattern))
+    iso = re.compile(r"\b(?:19|20)\d\d-\d\d-\d\d\b")
+    offenders = {f.relative_to(root).as_posix(): iso.findall(f.read_text(encoding="utf-8"))[:2] for f in files if iso.search(f.read_text(encoding="utf-8"))}
+    assert not offenders, offenders
+
+
+def test_init_db_strips_legacy_dated_model_ids(tmp_path):
+    from database import db
+    path = tmp_path / "legacy.db"
+    db.init_db(path)
+    with db.connect(path) as conn:
+        for mid in ("LinearSVC@2000-01-01", "LinearSVC-3f9a1c2e", "odd@name"):   # old "Name@YYYY-MM-DD" format (placeholder date)
+            conn.execute("INSERT INTO analyses (source, input_text, sentiment, score, score_type, model_id, created_at) VALUES ('single', 'x', 'neutral', 0.1, 'decision_score', ?, 't')", (mid,))
+    db.init_db(path)                       # runs the migration
+    db.init_db(path)                       # and is idempotent
+    ids = sorted(r["model_id"] for r in db.list_analyses(path))
+    assert ids == ["LinearSVC", "LinearSVC-3f9a1c2e", "odd@name"]
 
 
 def test_navigation_marks_the_current_page(client):

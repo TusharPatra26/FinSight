@@ -185,7 +185,8 @@ def test_artifact_loads_and_predicts():
 
 def test_metadata_records_required_fields():
     meta = json.loads(config.METADATA_PATH.read_text(encoding="utf-8"))
-    for key in ("model_name", "model_config", "training_date_utc", "dataset", "random_seed", "feature_extraction", "training_split",
+    assert not [k for k in meta if "date" in k.lower() or "time" in k.lower()], "metadata must not record dates"
+    for key in ("model_name", "model_config", "dataset", "random_seed", "feature_extraction", "training_split",
                 "validation_score", "final_test_metrics", "class_labels", "margin_bands"):
         assert key in meta, key
     assert meta["class_labels"] == ["negative", "neutral", "positive"] and meta["random_seed"] == config.RANDOM_SEED

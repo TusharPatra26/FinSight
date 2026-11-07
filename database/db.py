@@ -43,6 +43,9 @@ def init_db(db_path) -> None:
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        # Early versions stored model ids as "Name@YYYY-MM-DD". Strip the date suffix from any such rows (idempotent).
+        conn.execute("UPDATE analyses SET model_id = substr(model_id, 1, instr(model_id, '@') - 1) "
+                     "WHERE model_id GLOB '*@[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'")
 
 
 def _now() -> str:

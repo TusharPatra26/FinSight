@@ -25,7 +25,6 @@
       ]
     }
   },
-  "training_date_utc": "2026-11-07T21:38:50+00:00",
   "dataset": {
     "source": "takala/financial_phrasebank",
     "configuration": "sentences_50agree",

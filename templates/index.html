@@ -21,7 +21,7 @@
         <dt>vocabulary</dt><dd class="num">{{ '{:,}'.format(meta.feature_extraction.vocabulary_size) }} terms</dd>
         <dt>fitted on</dt><dd class="num">{{ '{:,}'.format(meta.training_split.n_train + meta.training_split.n_validation) }} sentences</dd>
         <dt>selected by</dt><dd>validation macro-F1</dd>
-        <dt>trained</dt><dd>{{ meta.training_date_utc[:10] }}</dd>
+        <dt>model id</dt><dd>{{ model.model_id }}</dd>
         <dt>seed</dt><dd>{{ meta.random_seed }}</dd>
       </dl>
       {% else %}

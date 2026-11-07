@@ -13,7 +13,6 @@ import json
 import platform
 import sys
 import time
-from datetime import datetime, timezone
 
 import joblib
 import pandas as pd
@@ -144,7 +143,6 @@ def main() -> None:
     metadata = {
         "model_name": winner,
         "model_config": {"classifier": winner, "classifier_params": final.named_steps["clf"].get_params(), "tuned_params": results[winner]["best_params"]},
-        "training_date_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "dataset": {"source": config.DATASET_REPO, "configuration": config.DATASET_CONFIG, "rows_raw": 4846, "rows_after_cleaning": len(df),
                     "cleaning": "src.data.clean(): drop conflicting-label sentences, de-duplicate identical sentences"},
         "random_seed": config.RANDOM_SEED,

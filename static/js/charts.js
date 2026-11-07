@@ -8,7 +8,8 @@
   const token = (n) => css.getPropertyValue("--" + n).trim() || n;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  Chart.defaults.font.family = css.getPropertyValue("--font-sans").trim();
+  // Read the font from <body>: pages other than the Overview override --font-sans there (IBM Plex Sans).
+  Chart.defaults.font.family = getComputedStyle(document.body).getPropertyValue("--font-sans").trim();
   Chart.defaults.font.size = 12;
   Chart.defaults.animation = reduce ? false : { duration: 1000, easing: "easeOutQuart" };
   Chart.defaults.plugins.legend.labels.usePointStyle = true;
@@ -51,7 +52,11 @@
   }
 
   const targets = Array.from(document.querySelectorAll("canvas[data-chart]"));
-  if (!("IntersectionObserver" in window)) { targets.forEach(build); return; }
-  const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { build(e.target); io.unobserve(e.target); } }), { threshold: 0.2 });
-  targets.forEach((c) => io.observe(c));
+  function start() {
+    if (!("IntersectionObserver" in window)) { targets.forEach(build); return; }
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { build(e.target); io.unobserve(e.target); } }), { threshold: 0.2 });
+    targets.forEach((c) => io.observe(c));
+  }
+  // Wait for web fonts so chart labels are drawn in IBM Plex rather than a fallback.
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(start, start);
 })();

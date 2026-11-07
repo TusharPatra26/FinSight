@@ -38,7 +38,8 @@ def test_margin_from_scores_is_gap_between_top_two():
 # ---------------------------------------------------------------- loading
 def test_model_loads_and_has_expected_metadata(model):
     assert model.labels == ["negative", "neutral", "positive"]
-    assert model.model_name == "LinearSVC" and "@" in model.model_id
+    import re
+    assert model.model_name == "LinearSVC" and re.fullmatch(r"LinearSVC-[0-9a-f]{8}", model.model_id), model.model_id
     assert model.bands and len(model.bands["cutpoints"]) == 2
 
 

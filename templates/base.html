@@ -8,7 +8,7 @@
   <script>document.documentElement.classList.add("js");</script>
   <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
-<body>
+<body class="page-{{ active or 'other' }}">
   <a class="sr-only" href="#main">Skip to content</a>
   <header class="nav">
     <div class="container nav__inner">
@@ -31,16 +31,59 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="footer">
-    <div class="container footer__grid">
-      <div>
-        <a class="logo" href="{{ url_for('index') }}"><span class="logo__mark">&Sigma;</span>FinSight</a>
-        <p style="margin-top:12px">A financial-text NLP research platform. It classifies the <em>tone of written sentences</em>; it does not use market data, forecast prices, or give investment advice.</p>
+  <footer class="footer section--dark graph">
+    <div class="container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <a class="logo" href="{{ url_for('index') }}"><span class="logo__mark">&Sigma;</span>FinSight</a>
+          <p>Financial news sentiment, built to be reproducible: transparent models, honest evaluation, and every number traceable to code.</p>
+          {% if nav_model %}
+          <a class="footer__model" href="{{ url_for('model_lab') }}" aria-label="Production model details">
+            <span>Production model</span>
+            <strong>{{ nav_model.model_name }}</strong>
+            <span>test macro-F1 {{ '%.3f'|format(nav_model.metadata.final_test_metrics.macro_f1) }}</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <nav aria-label="Explore">
+          <h4>Explore</h4>
+          <ul>
+            <li><a href="{{ url_for('index') }}">Overview</a></li>
+            <li><a href="{{ url_for('sentiment') }}">Sentiment Studio</a></li>
+            <li><a href="{{ url_for('market_pulse') }}">Market Pulse</a></li>
+            <li><a href="{{ url_for('model_lab') }}">Model Lab</a></li>
+            <li><a href="{{ url_for('history') }}">History</a></li>
+          </ul>
+        </nav>
+
+        <nav aria-label="Research">
+          <h4>Research</h4>
+          <ul>
+            <li><a href="{{ url_for('methodology') }}#dataset">Dataset</a></li>
+            <li><a href="{{ url_for('methodology') }}#eda">What the EDA found</a></li>
+            <li><a href="{{ url_for('methodology') }}#experiment">Experiment design</a></li>
+            <li><a href="{{ url_for('methodology') }}#explain">Scores &amp; explanations</a></li>
+            <li><a href="{{ url_for('methodology') }}#limits">Limitations</a></li>
+          </ul>
+        </nav>
+
+        <div>
+          <h4>Data &amp; credits</h4>
+          <ul>
+            <li><a href="https://huggingface.co/datasets/takala/financial_phrasebank" target="_blank" rel="noopener noreferrer">Financial PhraseBank &#8599;</a></li>
+            <li><a href="https://arxiv.org/abs/1307.5336" target="_blank" rel="noopener noreferrer">Malo et al. paper &#8599;</a></li>
+            <li><a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 3.0 licence &#8599;</a></li>
+            <li><a href="https://github.com/TusharPatra26/FinSight" target="_blank" rel="noopener noreferrer">Source on GitHub &#8599;</a></li>
+            <li class="footer__credit">Type: IBM Plex &middot; Charts: Chart.js</li>
+          </ul>
+        </div>
       </div>
-      <div class="mono" style="font-size:.8rem">
-        {% if nav_model %}Model: {{ nav_model.model_id }}<br>{% endif %}
-        Data: Financial PhraseBank (Malo et al., 2014), CC BY-NC-SA 3.0<br>
-        Runs fully locally. No external APIs.
+
+      <div class="footer__bottom">
+        <span>A research tool, not investment advice. It reads the tone of text; it does not predict prices.</span>
+        <span class="mono">Runs locally &middot; No external APIs</span>
+        <a href="#main">Back to top &#8593;</a>
       </div>
     </div>
   </footer>

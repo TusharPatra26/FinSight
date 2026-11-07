@@ -5,6 +5,7 @@ Run:  python app.py        (or: flask --app app run)
 import csv
 import io
 import json
+import mimetypes
 import os
 import re
 import uuid
@@ -22,6 +23,8 @@ from database import db
 from src import analytics
 from src.analytics import CSVValidationError
 from src.inference import InferenceError, InputValidationError, ModelNotFoundError, SentimentModel
+
+mimetypes.add_type("font/woff2", ".woff2")   # Windows' registry often lacks this type; fonts should not be served as octet-stream
 
 BATCH_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 EXPORT_COLUMNS = ("input_text", "sentiment", "score_type", "score", "margin", "margin_band", "key_terms", "model_id", "created_at")
