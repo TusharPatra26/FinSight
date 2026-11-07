@@ -1,0 +1,113 @@
+{
+  "model_name": "LinearSVC",
+  "model_config": {
+    "classifier": "LinearSVC",
+    "classifier_params": {
+      "C": 1,
+      "class_weight": "balanced",
+      "dual": "auto",
+      "fit_intercept": true,
+      "intercept_scaling": 1,
+      "loss": "squared_hinge",
+      "max_iter": 10000,
+      "multi_class": "ovr",
+      "penalty": "l2",
+      "random_state": 42,
+      "tol": 0.0001,
+      "verbose": 0
+    },
+    "tuned_params": {
+      "clf__C": 1,
+      "clf__class_weight": "balanced",
+      "tfidf__ngram_range": [
+        1,
+        2
+      ]
+    }
+  },
+  "training_date_utc": "2026-11-07T21:08:58+00:00",
+  "dataset": {
+    "source": "takala/financial_phrasebank",
+    "configuration": "sentences_50agree",
+    "rows_raw": 4846,
+    "rows_after_cleaning": 4836,
+    "cleaning": "src.data.clean(): drop conflicting-label sentences, de-duplicate identical sentences"
+  },
+  "random_seed": 42,
+  "feature_extraction": {
+    "vectorizer": "TfidfVectorizer",
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 2,
+    "sublinear_tf": true,
+    "token_pattern": "(?u)\\b\\w+\\b|[%$\u20ac\u00a3]",
+    "lowercase_in_preprocessor": true,
+    "preprocessor": "src.preprocessing.normalize_text",
+    "stopword_removal": false,
+    "vocabulary_size": 14080
+  },
+  "training_split": {
+    "method": "stratified 70/15/15 via src.data.get_splits()",
+    "n_train": 3384,
+    "n_validation": 726,
+    "n_test": 726,
+    "production_model_fitted_on": "train+validation (4110 rows); test set held out"
+  },
+  "selection": {
+    "metric": "validation macro-F1",
+    "tie_breaks": [
+      "CV macro-F1 (train)",
+      "lower inference time",
+      "name"
+    ]
+  },
+  "validation_score": {
+    "macro_f1": 0.7621273878343594,
+    "accuracy": 0.8044077134986226,
+    "note": "model fitted on train only, scored on validation",
+    "cv_macro_f1_mean": 0.7198935860915161
+  },
+  "final_test_metrics": {
+    "accuracy": 0.78099173553719,
+    "macro_precision": 0.7520238996886309,
+    "macro_recall": 0.7298555629045597,
+    "macro_f1": 0.7386188972855828,
+    "weighted_f1": 0.7771120880389267,
+    "per_class": {
+      "negative": {
+        "precision": 0.7,
+        "recall": 0.6923076923076923,
+        "f1": 0.6961325966850829,
+        "support": 91
+      },
+      "neutral": {
+        "precision": 0.8090128755364807,
+        "recall": 0.8747099767981439,
+        "f1": 0.8405797101449275,
+        "support": 431
+      },
+      "positive": {
+        "precision": 0.7470588235294118,
+        "recall": 0.6225490196078431,
+        "f1": 0.679144385026738,
+        "support": 204
+      }
+    }
+  },
+  "class_labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "label_ids": [
+    0,
+    1,
+    2
+  ],
+  "environment": {
+    "python": "3.12.16",
+    "scikit_learn": "1.9.1"
+  }
+}

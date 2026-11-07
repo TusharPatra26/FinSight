@@ -1,0 +1,32 @@
+{
+  "dataset": "takala/financial_phrasebank/sentences_50agree",
+  "n_rows": 4846,
+  "columns": [
+    "sentence",
+    "label"
+  ],
+  "dtypes": {
+    "sentence": "str",
+    "label": "int64"
+  },
+  "missing_values": {
+    "sentence": 0,
+    "label": 0
+  },
+  "empty_or_whitespace_sentences": 0,
+  "sentences_with_leading_trailing_whitespace": 0,
+  "exact_duplicate_rows": 6,
+  "rows_in_duplicate_sentence_groups": 16,
+  "duplicate_sentences_extra_copies": 8,
+  "sentences_with_conflicting_labels": 2,
+  "class_counts": {
+    "negative": 604,
+    "neutral": 2879,
+    "positive": 1363
+  },
+  "class_percentages": {
+    "negative": 12.46,
+    "neutral": 59.41,
+    "positive": 28.13
+  }
+}
