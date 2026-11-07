@@ -103,7 +103,8 @@ def test_batch_upload_end_to_end_with_download_and_history(client, app):
 
 def test_batch_via_html_form_shows_summary_and_download_link(client):
     r = client.post("/sentiment", data=csv_file(GOOD_CSV), content_type="multipart/form-data")
-    assert r.status_code == 200 and b"Download results CSV" in r.data and b"Analysed 3 of 4 rows" in r.data
+    assert r.status_code == 200 and b"Download results CSV" in r.data
+    assert b"Rows analysed" in r.data and b"Skipped" in r.data and b'data-chart="doughnut"' in r.data
 
 
 def test_single_column_csv_and_explicit_column_choice(client):
@@ -214,9 +215,74 @@ def test_cross_site_post_is_rejected(client):
 
 def test_dashboard_and_pulse_reflect_stored_data(client):
     client.post("/api/predict", json={"text": POS})
-    assert b"Analyses stored: 1" in client.get("/").data
+    assert b'data-count="1">1</span>' in client.get("/").data          # "Analyses stored" KPI
     pulse = client.get("/market-pulse").data
-    assert b"Revenue &amp; profitability" in pulse and b"your 1 analyses" in pulse
+    assert b"Revenue \\u0026 profitability" in pulse and b'data-count="1">1</span>' in pulse and b"Texts analysed" in pulse
+
+
+def test_empty_states_render_helpfully(client):
+    assert b"No analyses yet" in client.get("/market-pulse").data
+    assert b"No analyses yet" in client.get("/history").data
+    assert b"Nothing analysed yet" in client.get("/").data
+
+
+def test_dashboard_kpis_come_from_the_real_metadata(client):
+    import json, config
+    meta = json.loads(config.METADATA_PATH.read_text(encoding="utf-8"))
+    page = client.get("/").data.decode()
+    assert f'data-count="{meta["final_test_metrics"]["macro_f1"]}"' in page
+    assert f'data-count="{meta["final_test_metrics"]["accuracy"]}"' in page
+
+
+def test_model_lab_numbers_and_confusion_data_come_from_experiment_outputs(client):
+    import json, config
+    metrics = json.loads((config.RESULTS_DIR / "metrics.json").read_text(encoding="utf-8"))
+    page = client.get("/model-lab").data.decode()
+    assert f'{metrics["production"]["test_metrics"]["macro_f1"]:.3f}' in page
+    assert 'id="cm-data"' in page and '"Production"' in page and str(metrics["production"]["confusion_matrix_test"][0][0]) in page
+    assert page.count("data-chart=") >= 5          # comparison, speed and reliability charts are present
+
+
+@pytest.mark.parametrize("path", ["/", "/sentiment", "/market-pulse", "/model-lab", "/history", "/methodology"])
+def test_pages_are_responsive_accessible_and_offline(client, path):
+    import re
+    page = client.get(path).data.decode()
+    assert 'name="viewport"' in page and '<html lang="en">' in page and 'id="main"' in page
+    assert not re.findall(r'(?:src|href)="https?://', page), "pages must not load external resources"
+    assert "chart.umd.js" in page and "/static/css/style.css" in page
+
+
+def test_static_assets_and_figures_are_served(client):
+    for p in ("/static/css/style.css", "/static/js/main.js", "/static/js/charts.js", "/static/vendor/chart.umd.js",
+              "/analysis-figures/B_class_distribution.png"):
+        assert client.get(p).status_code == 200, p
+    assert client.get("/analysis-figures/eda.ipynb").status_code == 404
+    assert client.get("/analysis-figures/..%2Fconfig.py").status_code == 404
+    assert client.get("/analysis-figures/missing.png").status_code == 404
+
+
+def test_static_urls_are_versioned_so_browsers_never_serve_stale_assets(client):
+    import re
+    page = client.get("/").data.decode()
+    for name in ("css/style.css", "js/charts.js", "js/main.js", "vendor/chart.umd.js"):
+        assert re.search(rf"/static/{re.escape(name)}\?v=\d+", page), name
+
+
+def test_charts_js_handles_missing_options_attribute():
+    """Regression: JSON.parse(null) returns null, which crashed every chart without data-options."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "static" / "js" / "charts.js").read_text(encoding="utf-8")
+    assert "v == null ? fallback : v" in src
+
+
+def test_single_result_page_shows_scores_band_and_words(client):
+    page = client.post("/sentiment", data={"text": NEG}).data.decode()
+    assert "not probabilities" in page and "badge--" in page and "Influential words" in page and "decreased" in page
+    assert "correct" in page and "% of the time" in page
+
+
+def test_navigation_marks_the_current_page(client):
+    assert b'aria-current="page"' in client.get("/history").data
 
 
 def test_model_lab_shows_real_experiment_results(client):

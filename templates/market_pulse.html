@@ -1,16 +1,55 @@
 {% extends "base.html" %}
 {% block title %}Market Pulse{% endblock %}
 {% block content %}
-<h1>Market Pulse</h1>
-{% if n == 0 %}<p>No analyses yet. Analyse some text in the <a href="{{ url_for('sentiment') }}">Sentiment Studio</a> to see analytics here.</p>
-{% else %}
-<h3>Sentiment of your {{ n }} analyses</h3>
-<table><tr><th>Class</th><th>Count</th><th>%</th></tr>{% for k, d in dist.items() %}<tr><td>{{ k }}</td><td>{{ d.count }}</td><td>{{ d.percent }}</td></tr>{% endfor %}</table>
-<h3>Financial vocabulary (hand-written lexicon)</h3>
-<table><tr><th>Category</th><th>Texts</th><th>%</th></tr>{% for c in vocab.categories %}<tr><td>{{ c.category }}</td><td>{{ c.texts }}</td><td>{{ c.percent }}</td></tr>{% endfor %}</table>
-<h3>Top words by predicted sentiment</h3>
-{% for k, ws in words.items() %}<p><strong>{{ k }}:</strong> {% for w in ws %}{{ w.word }} ({{ w.count }}){% if not loop.last %}, {% endif %}{% endfor %}</p>{% endfor %}
-{% endif %}
-<h3>Reference: training corpus</h3>
-<p>{{ dataset.rows }} sentences; {% for k, d in dataset.distribution.items() %}{{ k }} {{ d.percent }}%{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+<section class="section graph" style="padding-bottom:40px">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Market Pulse</span><h1 style="font-size:clamp(2rem,4vw,3rem)">Sentiment analytics</h1>
+      <p class="lede">What the text you have analysed says, and what the reference corpus teaches about financial vocabulary. These are statistics about <em>language</em>, not market data or predictions.</p></div>
+
+    <h2 class="reveal">Your analyses</h2>
+    {% if n == 0 %}
+    <div class="empty reveal"><h3>No analyses yet</h3><p class="muted">Analyse a sentence or upload a CSV in the Sentiment Studio and this section fills with real counts from your local history.</p>
+      <a class="btn btn--primary btn--small" href="{{ url_for('sentiment') }}">Open Sentiment Studio</a></div>
+    {% else %}
+    <div class="grid grid--4 keep-2" style="margin-bottom:28px">
+      <div class="kpi reveal"><div class="kpi__value"><span data-count="{{ n }}">{{ n }}</span></div><div class="kpi__label">Texts analysed</div></div>
+      {% for k, d in dist.items() %}<div class="kpi reveal" style="--d:{{ loop.index * 0.08 }}s;border-color:var(--{{ k }})"><div class="kpi__value"><span data-count="{{ d.percent }}" data-decimals="1" data-suffix="%">{{ d.percent }}%</span></div>
+        <div class="kpi__label">{{ k }}</div><div class="kpi__note">{{ d.count }} texts</div></div>{% endfor %}
+    </div>
+    <div class="grid grid--2">
+      <div class="card reveal"><div class="card__title">Predicted sentiment mix</div><div class="chart-box"><canvas role="img" aria-label="Predicted sentiment mix" data-chart="doughnut" data-labels='{{ dist.keys()|list|tojson }}'
+        data-series='{{ [{"label":"Texts","data":dist.values()|map(attribute="count")|list,"colors":["negative","neutral","positive"]}]|tojson }}'></canvas></div></div>
+      <div class="card reveal" style="--d:.1s"><div class="card__title">Activity by day (UTC)</div><div class="chart-box"><canvas role="img" aria-label="Analyses per day by sentiment" data-chart="bar" data-labels='{{ days.keys()|list|tojson }}'
+        data-series='{{ [{"label":"negative","data":days.values()|map(attribute="negative")|list,"color":"negative"},{"label":"neutral","data":days.values()|map(attribute="neutral")|list,"color":"neutral"},{"label":"positive","data":days.values()|map(attribute="positive")|list,"color":"positive"}]|tojson }}'
+        data-options='{"stacked":true}'></canvas></div></div>
+    </div>
+    <div class="grid grid--2" style="margin-top:24px">
+      <div class="card reveal"><div class="card__title">Financial vocabulary in your texts (% mentioning each category)</div>
+        <div class="chart-box"><canvas role="img" aria-label="Financial vocabulary categories" data-chart="hbar" data-labels='{{ vocab.categories|map(attribute="category")|list|tojson }}'
+          data-series='{{ [{"label":"% of texts","data":vocab.categories|map(attribute="percent")|list,"color":"copper"}]|tojson }}' data-options='{"suffix":"%","decimals":0,"legend":false}'></canvas></div>
+        <p class="note" style="margin-top:12px">Hand-written lexicon of {{ vocab.categories|length }} categories; exact word matching. Not a complete financial dictionary.</p></div>
+      <div class="card reveal" style="--d:.1s"><div class="card__title">Most frequent words by predicted class</div>
+        {% for k, ws in words.items() %}<p style="margin-bottom:10px"><span class="badge badge--{{ k }}">{{ k }}</span><br>
+          {% for w in ws %}<span class="chip">{{ w.word }} <small>{{ w.count }}</small></span>{% else %}<span class="muted">no texts</span>{% endfor %}</p>{% endfor %}
+        <p class="note">Descriptive counts after removing common stop words; frequent is not the same as influential.</p></div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section section--dark graph">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Reference corpus</span><h2>What financial vocabulary signals in {{ '{:,}'.format(corpus.n) }} labelled sentences</h2>
+      <p class="lede">For each lexicon category: the sentiment mix of the Financial PhraseBank sentences that contain one of its words. The corpus baseline is {{ corpus.baseline.negative|round|int }}% negative, {{ corpus.baseline.neutral|round|int }}% neutral, {{ corpus.baseline.positive|round|int }}% positive.</p></div>
+    <div class="card reveal"><div class="card__title">Sentiment mix of sentences containing each category (%)</div>
+      <div class="chart-box chart-box--tall"><canvas role="img" aria-label="Sentiment mix per vocabulary category" data-chart="hbar" data-labels='{{ corpus.categories|map(attribute="category")|list|tojson }}'
+        data-series='{{ [{"label":"negative","data":corpus.categories|map(attribute="mix")|map(attribute="negative")|list,"color":"negative"},{"label":"neutral","data":corpus.categories|map(attribute="mix")|map(attribute="neutral")|list,"color":"neutral"},{"label":"positive","data":corpus.categories|map(attribute="mix")|map(attribute="positive")|list,"color":"positive"}]|tojson }}'
+        data-options='{"stacked":true,"max":100,"suffix":"%","decimals":0}'></canvas></div></div>
+    <div class="grid grid--3" style="margin-top:24px">
+      <div class="card reveal"><h4>Direction words carry the sentiment</h4><p class="muted">Risk and downside terms skew strongly negative; growth terms skew strongly positive.</p></div>
+      <div class="card reveal" style="--d:.1s"><h4>Money words are ambiguous</h4><p class="muted">Profit, revenue and loss vocabulary appears on both sides: &ldquo;loss narrowed&rdquo; is good news. Context and word order matter.</p></div>
+      <div class="card reveal" style="--d:.2s"><h4>Association, not causation</h4><p class="muted">These are co-occurrence statistics from one annotated sample of mostly Nordic company news, not evidence that a word causes a market move.</p></div>
+    </div>
+  </div>
+</section>
 {% endblock %}

@@ -4,6 +4,7 @@ Run:  python app.py        (or: flask --app app run)
 """
 import csv
 import io
+import json
 import os
 import re
 import uuid
@@ -11,7 +12,8 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, url_for
+from flask import (Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_from_directory,
+                   url_for)
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
@@ -134,22 +136,37 @@ def create_app(test_config=None) -> Flask:
         return Response(buf.getvalue(), mimetype="text/csv",
                         headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
+    def asset(filename: str) -> str:
+        """Static URL with a version taken from the file's modification time, so browsers never serve stale CSS/JS."""
+        path = Path(app.static_folder) / filename
+        return url_for("static", filename=filename, v=int(path.stat().st_mtime) if path.exists() else 0)
+
+    @app.context_processor
+    def inject_globals():
+        m = model_or_none()
+        return {"nav_model": m, "active": request.endpoint, "asset": asset}
+
     # ------------------------------------------------------------------ pages
     @app.route("/")
     def index():
         model = model_or_none()
         dbp = app.config["DATABASE"]
-        return render_template("index.html", model=model, meta=model.metadata if model else None, dataset=dataset_info(),
+        meta = model.metadata if model else None
+        return render_template("index.html", model=model, meta=meta, dataset=dataset_info(),
                                total=db.count_analyses(dbp), counts=analytics.sentiment_distribution(db.sentiment_counts(dbp)),
-                               recent=db.list_analyses(dbp, limit=5), model_error=state["error"])
+                               recent=db.list_analyses(dbp, limit=5), model_error=state["error"],
+                               lab=analytics.lab_payload(analytics.load_experiment_results(), meta))
 
     @app.route("/sentiment", methods=["GET", "POST"])
     def sentiment():
-        ctx = {"model": model_or_none(), "single": None, "batch": None, "text": ""}
+        model = model_or_none()
+        ctx = {"model": model, "single": None, "batch": None, "text": "", "mode": "single",
+               "bands": model.bands if model else None}
         if request.method == "POST":
             f = request.files.get("file")
             try:
                 if f is not None and f.filename:
+                    ctx["mode"] = "batch"
                     ctx["batch"] = run_batch(f, request.form.get("text_column", "").strip())
                 else:
                     ctx["text"] = request.form.get("text", "")
@@ -157,6 +174,7 @@ def create_app(test_config=None) -> Flask:
                     db.add_results(app.config["DATABASE"], [result], "single")
                     ctx["single"] = result
             except (InputValidationError, CSVValidationError) as exc:
+                ctx["mode"] = "batch" if (f is not None and f.filename) else "single"
                 flash(str(exc), "error")
         return render_template("sentiment.html", **ctx)
 
@@ -165,13 +183,18 @@ def create_app(test_config=None) -> Flask:
         dbp = app.config["DATABASE"]
         rows = db.list_analyses(dbp, limit=5000)
         texts, labels = [r["input_text"] for r in rows], [r["sentiment"] for r in rows]
+        days = {}
+        for r in db.daily_counts(dbp):
+            days.setdefault(r["day"], {n: 0 for n in config.LABEL_NAMES})[r["sentiment"]] = r["n"]
         return render_template("market_pulse.html", n=len(rows), dist=analytics.sentiment_distribution(labels),
                                vocab=analytics.financial_term_counts(texts), words=analytics.top_words_by_sentiment(texts, labels),
-                               daily=db.daily_counts(dbp), dataset=dataset_info())
+                               days=days, dataset=dataset_info(), corpus=analytics.corpus_vocabulary_profile())
 
     @app.route("/model-lab")
     def model_lab():
-        return render_template("model_lab.html", exp=analytics.load_experiment_results(), model=model_or_none())
+        model = model_or_none()
+        exp = analytics.load_experiment_results()
+        return render_template("model_lab.html", exp=exp, model=model, lab=analytics.lab_payload(exp, model.metadata if model else None))
 
     @app.route("/history")
     def history():
@@ -207,7 +230,20 @@ def create_app(test_config=None) -> Flask:
     @app.route("/methodology")
     def methodology():
         model = model_or_none()
-        return render_template("methodology.html", meta=model.metadata if model else None, dataset=dataset_info())
+        meta = model.metadata if model else None
+        report = None
+        if config.VALIDATION_REPORT.exists():
+            report = json.loads(config.VALIDATION_REPORT.read_text(encoding="utf-8"))
+        return render_template("methodology.html", meta=meta, dataset=dataset_info(), report=report,
+                               lab=analytics.lab_payload(analytics.load_experiment_results(), meta),
+                               corpus=analytics.corpus_vocabulary_profile())
+
+    @app.route("/analysis-figures/<path:filename>")
+    def analysis_figure(filename):
+        """Serve the committed EDA figures (PNG only) for the Methodology page."""
+        if not filename.lower().endswith(".png"):
+            abort(404)
+        return send_from_directory(config.ANALYSIS_DIR / "figures", filename)
 
     # ------------------------------------------------------------------ API + downloads
     @app.route("/api/predict", methods=["POST"])

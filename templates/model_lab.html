@@ -1,13 +1,95 @@
 {% extends "base.html" %}
 {% block title %}Model Laboratory{% endblock %}
 {% block content %}
-<h1>Model Laboratory</h1>
-{% if not exp.available %}<p class="error">No experiment results found. Run <code>python -m experiments.run_experiments</code>.</p>
-{% else %}
-<p>Winner: <strong>{{ exp.metrics.winner }}</strong> (selected on validation macro-F1; test set not used for selection).</p>
-<table><tr><th>Model</th><th>Selected</th><th>CV macro-F1</th><th>Val macro-F1</th><th>Test accuracy</th><th>Test macro-F1</th><th>Test weighted-F1</th><th>Train s</th><th>ms/sentence</th></tr>
-{% for r in exp.comparison %}<tr><td>{{ r.model }}</td><td>{{ 'yes' if r.selected else '' }}</td><td>{{ '%.3f'|format(r.cv_macro_f1_mean) }}</td><td>{{ '%.3f'|format(r.val_macro_f1) }}</td><td>{{ '%.3f'|format(r.test_accuracy) }}</td><td>{{ '%.3f'|format(r.test_macro_f1) }}</td><td>{{ '%.3f'|format(r.test_weighted_f1) }}</td><td>{{ '%.2f'|format(r.train_time_s) }}</td><td>{{ '%.3f'|format(r.inference_ms_per_sentence) }}</td></tr>{% endfor %}</table>
-<h3>Production model on the held-out test set</h3>
-<pre>{{ exp.metrics.production.classification_report_test }}</pre>
+<section class="section graph" style="padding-bottom:40px">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Model Laboratory</span><h1 style="font-size:clamp(2rem,4vw,3rem)">Six candidates, compared fairly</h1>
+      <p class="lede">All numbers on this page are read from the experiment outputs in <span class="mono">experiments/results/</span>. Models were tuned on a training/validation split; the held-out test set was scored only after the winner was chosen.</p></div>
+    {% if not lab.available %}
+    <div class="empty"><h3>No experiment results found</h3><p>Run <code>python -m experiments.run_experiments</code> to generate them.</p></div>
+    {% else %}
+    {% set prod = lab.production %}
+    <div class="grid grid--4 keep-2">
+      <div class="kpi reveal"><div class="kpi__value" style="font-size:1.9rem;padding:.5rem 0">{{ lab.winner }}</div><div class="kpi__label">Selected model</div><div class="kpi__note">highest validation macro-F1</div></div>
+      <div class="kpi reveal" style="--d:.08s"><div class="kpi__value"><span data-count="{{ prod.test_metrics.macro_f1 }}" data-decimals="3">{{ '%.3f'|format(prod.test_metrics.macro_f1) }}</span></div><div class="kpi__label">Final test macro-F1</div><div class="kpi__note">production model, {{ lab.meta.n_test }} test sentences</div></div>
+      <div class="kpi reveal" style="--d:.16s"><div class="kpi__value"><span data-count="{{ prod.test_metrics.accuracy }}" data-decimals="3">{{ '%.3f'|format(prod.test_metrics.accuracy) }}</span></div><div class="kpi__label">Final test accuracy</div><div class="kpi__note">baseline {{ '%.3f'|format(lab.baseline_accuracy) }}</div></div>
+      <div class="kpi reveal" style="--d:.24s"><div class="kpi__value"><span data-count="{{ prod.test_metrics.weighted_f1 }}" data-decimals="3">{{ '%.3f'|format(prod.test_metrics.weighted_f1) }}</span></div><div class="kpi__label">Final test weighted-F1</div><div class="kpi__note">fitted on train+validation</div></div>
+    </div>
+
+    <h2 class="reveal" style="margin-top:56px">Leaderboard</h2>
+    <div class="table-wrap reveal"><table class="table"><thead><tr><th>#</th><th>Model</th><th class="num">CV macro-F1</th><th class="num">Val macro-F1</th><th class="num">Test accuracy</th><th class="num">Test macro-F1</th><th class="num">Test weighted-F1</th><th class="num">Train (s)</th><th class="num">ms / sentence</th></tr></thead><tbody>
+      {% for r in lab.models %}<tr class="{{ 'is-winner' if r.selected }}"><td class="num">{{ r.rank_by_validation }}</td><td>{{ r.model }}{% if r.selected %} <span class="badge badge--high">selected</span>{% endif %}</td>
+        <td class="num">{{ '%.3f'|format(r.cv_macro_f1_mean) }} <small class="muted">&plusmn;{{ '%.3f'|format(r.cv_macro_f1_std) }}</small></td><td class="num">{{ '%.3f'|format(r.val_macro_f1) }}</td>
+        <td class="num">{{ '%.3f'|format(r.test_accuracy) }}</td><td class="num">{{ '%.3f'|format(r.test_macro_f1) }}</td><td class="num">{{ '%.3f'|format(r.test_weighted_f1) }}</td>
+        <td class="num">{{ '%.2f'|format(r.train_time_s) }}</td><td class="num">{{ '%.3f'|format(r.inference_ms_per_sentence) }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <p class="note reveal" style="margin-top:14px">Rank = validation macro-F1 (ties: cross-validation macro-F1, then faster inference). Test columns come from each model fitted on the training split only and were computed <em>after</em> selection. The top three models are within {{ lab.top3_spread }} points of each other on validation; their cross-validation scores overlap, so treat small gaps as noise.</p>
+    {% endif %}
+  </div>
+</section>
+
+{% if lab.available %}
+<section class="section section--dark graph">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Charts</span><h2>Quality, speed and cost</h2></div>
+    {% set names = lab.models|map(attribute='model')|list %}
+    <div class="grid grid--2">
+      <div class="card reveal"><div class="card__title">Macro-F1: validation vs test</div><div class="chart-box"><canvas role="img" aria-label="Macro F1 validation vs test" data-chart="hbar" data-labels='{{ names|tojson }}'
+        data-series='{{ [{"label":"Validation","data":lab.models|map(attribute="val_macro_f1")|list,"color":"copper"},{"label":"Test","data":lab.models|map(attribute="test_macro_f1")|list,"color":"sage"}]|tojson }}' data-options='{"max":1,"decimals":3}'></canvas></div></div>
+      <div class="card reveal" style="--d:.1s"><div class="card__title">Accuracy and weighted-F1 (test)</div><div class="chart-box"><canvas role="img" aria-label="Test accuracy and weighted F1" data-chart="hbar" data-labels='{{ names|tojson }}'
+        data-series='{{ [{"label":"Accuracy","data":lab.models|map(attribute="test_accuracy")|list,"color":"gold"},{"label":"Weighted F1","data":lab.models|map(attribute="test_weighted_f1")|list,"color":"sage"}]|tojson }}' data-options='{"max":1,"decimals":3}'></canvas></div></div>
+      <div class="card reveal"><div class="card__title">Training time (seconds, train split)</div><div class="chart-box chart-box--short"><canvas role="img" aria-label="Training time" data-chart="hbar" data-labels='{{ names|tojson }}'
+        data-series='{{ [{"label":"Seconds","data":lab.models|map(attribute="train_time_s")|list,"color":"copper"}]|tojson }}' data-options='{"decimals":2,"legend":false}'></canvas></div></div>
+      <div class="card reveal" style="--d:.1s"><div class="card__title">Inference time (ms per sentence)</div><div class="chart-box chart-box--short"><canvas role="img" aria-label="Inference time" data-chart="hbar" data-labels='{{ names|tojson }}'
+        data-series='{{ [{"label":"ms / sentence","data":lab.models|map(attribute="inference_ms_per_sentence")|list,"color":"burgundy"}]|tojson }}' data-options='{"decimals":3,"legend":false}'></canvas></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Where the errors are</span><h2>Confusion matrices</h2>
+      <p class="lede">Rows are the true class, columns the prediction; shading shows the share of each true class. Diagonal cells are correct. All matrices use the held-out test set.</p></div>
+    <div class="row reveal" style="margin-bottom:20px" role="group" aria-label="Choose a model">
+      <button class="chip chip--button" data-cm="Production" aria-pressed="true">Production model</button>
+      {% for n in lab.ranking %}<button class="chip chip--button" data-cm="{{ n }}" aria-pressed="false">{{ n }}</button>{% endfor %}
+    </div>
+    <div class="grid grid--2 reveal" style="align-items:start">
+      <div><div class="card__title" id="cm-title"></div><div class="cm" id="cm-grid" role="img" aria-label="Confusion matrix"></div>
+        <noscript><p class="note">Enable JavaScript to explore confusion matrices. PNG versions are saved in experiments/results/confusion_matrices/.</p></noscript></div>
+      <div><div class="card__title" id="cm-summary"></div>
+        <div class="table-wrap"><table class="table" id="cm-perclass"><thead><tr><th>Class</th><th class="num">Precision</th><th class="num">Recall</th><th class="num">F1</th><th class="num">Support</th></tr></thead><tbody></tbody></table></div>
+        <p class="note" style="margin-top:14px">The usual weak spot is <em>positive</em> recall: many positive sentences are predicted neutral, reflecting how subjective the neutral/positive boundary is in the annotations.</p></div>
+    </div>
+    <script type="application/json" id="cm-data">{{ lab.confusion|tojson }}</script>
+  </div>
+</section>
+
+<section class="section section--paper2">
+  <div class="container grid grid--2" style="gap:40px">
+    <div class="reveal"><span class="eyebrow">Confidence</span><h2>Does the reliability band mean anything?</h2>
+      <p class="muted">The selected model outputs scores, not probabilities, so FinSight reports the <em>margin</em> between its top two class scores and measured how often predictions were right inside each margin band. This used 5-fold out-of-fold predictions on the training and validation data only.</p>
+      {% if lab.bands %}<p class="note">{{ lab.bands.method }}. {{ lab.bands.note }}</p>{% endif %}</div>
+    <div class="card reveal" style="--d:.1s"><div class="card__title">Accuracy within each margin band (%)</div>
+      {% if lab.bands %}<div class="chart-box chart-box--short"><canvas role="img" aria-label="Accuracy by margin band" data-chart="bar" data-labels='{{ lab.band_accuracy_pct.keys()|list|tojson }}'
+        data-series='{{ [{"label":"Accuracy","data":lab.band_accuracy_pct.values()|list,"colors":["burgundy","gold","forest"]}]|tojson }}' data-options='{"max":100,"suffix":"%","decimals":0,"legend":false}'></canvas></div>
+      <p class="note" style="margin-top:10px">Sentences per band: {% for k, v in lab.bands.n_by_band.items() %}{{ k }} {{ v }}{% if not loop.last %} &middot; {% endif %}{% endfor %}</p>{% endif %}</div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Hyperparameters</span><h2>Best settings tried for {{ lab.winner }}</h2>
+      <p class="lede">Every grid point was scored by 5-fold cross-validation on the training split and by validation macro-F1. Validation macro-F1 chose the setting.</p></div>
+    <div class="table-wrap reveal"><table class="table"><thead><tr><th>Setting</th><th class="num">CV macro-F1</th><th class="num">Validation macro-F1</th><th class="num">Validation accuracy</th></tr></thead><tbody>
+      {% for s in lab.search %}<tr class="{{ 'is-winner' if loop.first }}"><td class="mono" style="font-size:.82rem">{% for k, v in s.params.items() %}{{ k.split('__')[-1] }}={{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+        <td class="num">{{ '%.3f'|format(s.cv_macro_f1_mean) }}</td><td class="num">{{ '%.3f'|format(s.val_macro_f1) }}</td><td class="num">{{ '%.3f'|format(s.val_accuracy) }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="card reveal" style="margin-top:32px"><h4>Reading these results honestly</h4>
+      <ul class="muted"><li>The validation score of the winner is slightly optimistic because both the settings and the model were chosen on validation. The test numbers are the honest estimate.</li>
+        <li>Differences of about a point of macro-F1 on {{ lab.meta.n_test }} sentences are within noise.</li>
+        <li>Class imbalance is why macro-F1, not accuracy, decides: the always-neutral baseline reaches {{ '%.3f'|format(lab.baseline_accuracy) }} accuracy but a macro-F1 of only {{ '%.3f'|format((lab.models|selectattr('model','equalto','DummyClassifier')|first).test_macro_f1) }}.</li></ul></div>
+  </div>
+</section>
 {% endif %}
 {% endblock %}

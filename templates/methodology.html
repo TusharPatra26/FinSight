@@ -1,9 +1,90 @@
 {% extends "base.html" %}
 {% block title %}Methodology{% endblock %}
 {% block content %}
-<h1>Methodology</h1>
-<p>Dataset: Financial PhraseBank, 50%-agreement subset (Malo et al., 2014; CC BY-NC-SA 3.0). {{ dataset.rows }} sentences after cleaning.</p>
-{% if meta %}<p>Model: {{ meta.model_name }}; TF-IDF {{ meta.feature_extraction.ngram_range }} n-grams; seed {{ meta.random_seed }};
-split {{ meta.training_split.n_train }}/{{ meta.training_split.n_validation }}/{{ meta.training_split.n_test }}.</p>{% endif %}
-<p>Full EDA: <code>analysis/eda.ipynb</code> and <code>analysis/eda_report.md</code>. (The designed methodology page arrives in Milestone 5.)</p>
+{% set cc = report.class_counts if report else None %}
+<section class="section section--dark graph hero" style="padding:72px 0 56px">
+  <div class="container reveal"><span class="eyebrow">Methodology</span><h1>How FinSight was built, and how far to trust it</h1>
+    <p class="lede">The dataset, what exploratory analysis revealed, how models were compared, and what the system cannot do. Every figure and number here comes from the project&rsquo;s own notebooks and experiment outputs.</p></div>
+</section>
+
+<section class="section">
+  <div class="container grid layout-toc" style="grid-template-columns:200px minmax(0,1fr);gap:48px">
+    <nav class="toc" aria-label="On this page">
+      <a href="#purpose">Purpose</a><a href="#dataset">Dataset</a><a href="#eda">What the EDA found</a><a href="#features">Text features</a>
+      <a href="#experiment">Experiment design</a><a href="#results">Results</a><a href="#explain">Scores and explanations</a><a href="#limits">Limitations</a><a href="#cite">Citation and licence</a>
+    </nav>
+    <div class="prose">
+      <h2 id="purpose" class="reveal">Purpose and scope</h2>
+      <p>FinSight is a research platform for <strong>financial news sentiment</strong>: given a sentence, is its tone positive, negative or neutral? It reads text only. It does not use prices or market data, does not forecast anything, and nothing it shows is investment advice.</p>
+
+      <h2 id="dataset" class="reveal">Dataset</h2>
+      <p>The corpus is <strong>Financial PhraseBank</strong>, sentences from English-language financial news labelled by finance-literate annotators. FinSight uses only the <em>50% agreement</em> subset: a sentence is included when at least half the annotators agreed on its label. Other agreement levels are never mixed in.</p>
+      {% if cc %}
+      <div class="table-wrap"><table class="table"><thead><tr><th>Class</th><th class="num">Sentences</th><th class="num">Share</th></tr></thead><tbody>
+        {% for k in ['negative','neutral','positive'] %}<tr><td><span class="badge badge--{{ k }}">{{ k }}</span></td><td class="num">{{ '{:,}'.format(cc[k]) }}</td><td class="num">{{ report.class_percentages[k] }}%</td></tr>{% endfor %}
+        <tr><td><strong>Total</strong></td><td class="num">{{ '{:,}'.format(report.n_rows) }}</td><td class="num">100%</td></tr></tbody></table></div>
+      <p style="margin-top:14px">Validation found no missing or empty sentences, {{ report.duplicate_sentences_extra_copies }} repeated sentences, and {{ report.sentences_with_conflicting_labels }} sentences carrying <em>conflicting</em> labels. Conflicting sentences were removed and same-label duplicates collapsed, leaving <strong>{{ '{:,}'.format(dataset.rows) }}</strong> sentences. Imbalance is {{ '%.2f'|format(cc.neutral / cc.negative) }} : 1 (neutral : negative). Raw data is preserved untouched in <span class="mono">data/raw/</span>.</p>
+      {% endif %}
+
+      <h2 id="eda" class="reveal">What the exploratory analysis found</h2>
+      <p>The full investigation lives in <span class="mono">analysis/eda.ipynb</span> with a written summary in <span class="mono">analysis/eda_report.md</span>. The findings that shaped the design:</p>
+      <ul>
+        <li><strong>Imbalance changes what &ldquo;good&rdquo; means.</strong> Always answering &ldquo;neutral&rdquo; scores about 59% accuracy. Models are therefore ranked by <em>macro-F1</em>.</li>
+        <li><strong>Length is not a signal.</strong> Mean sentence length is about {{ dataset.mean_words }} words; class differences are statistically detectable but tiny (effect size 0.013).</li>
+        <li><strong>Numbers matter.</strong> About 75% of negative sentences contain digits, against 47% of neutral ones, so numbers and the % sign are kept as features.</li>
+        <li><strong>Direction words carry sentiment; money words are ambiguous.</strong> &ldquo;Loss&rdquo; appears about equally in positive and negative sentences (&ldquo;loss narrowed&rdquo;). Context and word order matter.</li>
+        <li><strong>Labels are genuinely uncertain.</strong> On sentences where annotators were not unanimous, a quick check scored far lower (macro-F1 about 0.59) than on unanimous ones (about 0.88).</li>
+        <li><strong>Stopword removal hurts.</strong> Standard stopword lists delete words like &ldquo;not&rdquo;, &ldquo;down&rdquo; and &ldquo;against&rdquo;; removing them lowered validation macro-F1 from about 0.73 to 0.64, so FinSight keeps them.</li>
+      </ul>
+      <figure class="figure reveal"><img src="{{ url_for('analysis_figure', filename='B_class_distribution.png') }}" alt="Class frequencies and shares" loading="lazy"><figcaption>Class frequencies: neutral dominates.</figcaption></figure>
+      <figure class="figure reveal"><img src="{{ url_for('analysis_figure', filename='E_log_odds_words.png') }}" alt="Words most associated with each class" loading="lazy"><figcaption>Words most associated with each class (log-odds). Association within this sample, not causation.</figcaption></figure>
+      <figure class="figure reveal"><img src="{{ url_for('analysis_figure', filename='F_financial_vocabulary.png') }}" alt="Financial vocabulary categories and their sentiment mix" loading="lazy"><figcaption>A small hand-written financial lexicon and the sentiment mix of sentences that use it.</figcaption></figure>
+      {% if corpus %}
+      <h3>Lexicon categories on the cleaned corpus (live)</h3>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Category</th><th class="num">Sentences</th><th class="num">Neg %</th><th class="num">Neu %</th><th class="num">Pos %</th></tr></thead><tbody>
+        {% for c in corpus.categories %}<tr><td>{{ c.category }}</td><td class="num">{{ c.sentences }}</td><td class="num">{{ c.mix.negative }}</td><td class="num">{{ c.mix.neutral }}</td><td class="num">{{ c.mix.positive }}</td></tr>{% endfor %}
+        <tr><td><em>corpus baseline</em></td><td class="num">{{ corpus.n }}</td><td class="num">{{ corpus.baseline.negative }}</td><td class="num">{{ corpus.baseline.neutral }}</td><td class="num">{{ corpus.baseline.positive }}</td></tr></tbody></table></div>
+      {% endif %}
+
+      <h2 id="features" class="reveal">Text features</h2>
+      <p>Text is lower-cased and whitespace-normalised, then converted with <strong>TF-IDF</strong> (term frequency &times; inverse document frequency), which up-weights words that are distinctive and down-weights words that appear everywhere. The vectoriser uses single words and two-word phrases and is fitted <em>inside</em> the model pipeline, only ever on training data, so nothing leaks from validation or test.</p>
+      {% if meta %}<p class="formula">ngram_range = ({{ meta.feature_extraction.ngram_range[0] }}, {{ meta.feature_extraction.ngram_range[1] }}) &middot; min_df = {{ meta.feature_extraction.min_df }} &middot; sublinear_tf = {{ meta.feature_extraction.sublinear_tf }} &middot; vocabulary = {{ '{:,}'.format(meta.feature_extraction.vocabulary_size) }} terms</p>{% endif %}
+      <p>The limitation of this representation is that word order is largely lost: &ldquo;loss narrowed&rdquo; and &ldquo;loss widened&rdquo; differ by one word, and only two-word phrases partly capture such patterns.</p>
+
+      <h2 id="experiment" class="reveal">Experiment design</h2>
+      <ul>
+        <li>One stratified <strong>70 / 15 / 15</strong> split into training, validation and test sets, with a fixed seed ({{ meta.random_seed if meta else 42 }}); every model sees identical rows.</li>
+        <li>Six candidates share one registry and one pipeline shape: a majority-class baseline, Multinomial and Complement Naive Bayes, Logistic Regression, a linear SVM and an SGD classifier.</li>
+        <li>Each candidate has a small hyper-parameter grid. 5-fold cross-validation on the training split is recorded, and <strong>validation macro-F1</strong> selects the setting and the winner. Ties fall back to CV score, then speed.</li>
+        <li>The <strong>test set was untouched until selection was finished</strong>. The winner was then refit on training + validation and scored once on the test set.</li>
+      </ul>
+
+      <h2 id="results" class="reveal">Results</h2>
+      {% if lab.available %}
+      <div class="table-wrap"><table class="table"><thead><tr><th>Model</th><th class="num">Val macro-F1</th><th class="num">Test accuracy</th><th class="num">Test macro-F1</th></tr></thead><tbody>
+        {% for r in lab.models %}<tr class="{{ 'is-winner' if r.selected }}"><td>{{ r.model }}</td><td class="num">{{ '%.3f'|format(r.val_macro_f1) }}</td><td class="num">{{ '%.3f'|format(r.test_accuracy) }}</td><td class="num">{{ '%.3f'|format(r.test_macro_f1) }}</td></tr>{% endfor %}</tbody></table></div>
+      <p style="margin-top:14px">The production model, <strong>{{ lab.winner }}</strong>, scored <strong>{{ '%.3f'|format(lab.production.test_metrics.macro_f1) }} macro-F1</strong> and <strong>{{ '%.3f'|format(lab.production.test_metrics.accuracy) }} accuracy</strong> on the held-out test set. The top three models differ by only {{ lab.top3_spread }} points on validation, so the choice among them is not decisive. See the <a href="{{ url_for('model_lab') }}">Model Laboratory</a> for per-class results, confusion matrices and timings.</p>
+      {% else %}<p class="muted">Experiment results are not available yet. Run <code>python -m experiments.run_experiments</code>.</p>{% endif %}
+
+      <h2 id="explain" class="reveal">Scores and explanations</h2>
+      <p>The selected model is a linear SVM, which produces <strong>decision scores, not probabilities</strong>, and FinSight never presents them as probabilities. To give a usable sense of confidence it reports a <em>margin band</em>: the gap between the top two class scores, grouped into Low / Medium / High, with the real accuracy of each band measured out-of-fold on the training and validation data.</p>
+      {% if lab.available and lab.bands %}<p class="formula">accuracy within band &mdash; {% for k, v in lab.band_accuracy_pct.items() %}{{ k }}: {{ v }}%{% if not loop.last %} &middot; {% endif %}{% endfor %}</p>{% endif %}
+      <p>Word explanations multiply each word&rsquo;s TF-IDF weight by the model coefficient for the predicted class. They show <em>statistical association learned from training data</em> &mdash; not causation or understanding &mdash; and they ignore longer-range context.</p>
+
+      <h2 id="limits" class="reveal">Limitations</h2>
+      <ul>
+        <li><strong>Narrow data.</strong> About 4,800 sentences from one annotated collection of mostly Nordic company news from the 2000s, in English. Other domains, regions and writing styles may behave differently.</li>
+        <li><strong>Subjective labels.</strong> Annotators disagreed on many sentences; no model can fully resolve that. Annotator-level labels are not published, so inter-annotator reliability (for example Cohen&rsquo;s &kappa;) is not computed here.</li>
+        <li><strong>No context.</strong> Each sentence is judged alone, without the company, date or market expectations that a human analyst would use.</li>
+        <li><strong>Neutral versus polar is hard.</strong> Positive sentences are most often mistaken for neutral.</li>
+        <li><strong>Bag-of-words ceiling.</strong> Negation and long-range word order are only partly captured.</li>
+        <li><strong>Not a trading tool.</strong> Sentiment of a sentence is not a forecast and not advice.</li>
+      </ul>
+
+      <h2 id="cite" class="reveal">Citation and licence</h2>
+      <p>Malo, P., Sinha, A., Korhonen, P., Wallenius, J., &amp; Takala, P. (2014). Good debt or bad debt: Detecting semantic orientations in economic texts. <em>Journal of the Association for Information Science and Technology</em>, 65.</p>
+      <p>Data licence: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 &mdash; <strong>non-commercial use only</strong>. Source: <span class="mono">huggingface.co/datasets/takala/financial_phrasebank</span>. Charts use Chart.js (MIT).</p>
+    </div>
+  </div>
+</section>
 {% endblock %}

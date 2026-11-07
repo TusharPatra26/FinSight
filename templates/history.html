@@ -1,21 +1,42 @@
 {% extends "base.html" %}
 {% block title %}History{% endblock %}
 {% block content %}
-<h1>Analysis history</h1>
-<form method="get">
-  <input name="q" value="{{ filters.q }}" placeholder="Search text">
-  <select name="sentiment"><option value="">any sentiment</option>{% for s in ['negative','neutral','positive'] %}<option {{ 'selected' if filters.sentiment==s }}>{{ s }}</option>{% endfor %}</select>
-  <select name="source"><option value="">single + batch</option>{% for s in ['single','batch'] %}<option {{ 'selected' if filters.source==s }}>{{ s }}</option>{% endfor %}</select>
-  <button>Filter</button> <a href="{{ url_for('history_export') }}">Export all (CSV)</a>
-</form>
-<p>{{ total }} entr{{ 'y' if total == 1 else 'ies' }}</p>
-{% if rows %}
-<table><tr><th>When (UTC)</th><th>Source</th><th>Text</th><th>Sentiment</th><th>Score</th><th>Band</th><th>Model</th></tr>
-{% for r in rows %}<tr><td>{{ r.created_at }}</td><td>{{ r.source }}</td><td>{{ r.input_text[:140] }}</td><td>{{ r.sentiment }}</td><td>{{ r.score }}</td><td>{{ r.margin_band }}</td><td>{{ r.model_id }}</td></tr>{% endfor %}</table>
-<p>Page {{ page }} of {{ pages }}
-{% if page > 1 %}<a href="{{ url_for('history', page=page-1, **filters) }}">previous</a>{% endif %}
-{% if page < pages %}<a href="{{ url_for('history', page=page+1, **filters) }}">next</a>{% endif %}</p>
-<form method="post" action="{{ url_for('history_clear') }}" onsubmit="return confirm('Delete ALL history? This cannot be undone.')">
-  <input type="hidden" name="confirm" value="yes"><button>Clear all history</button></form>
-{% else %}<p>No analyses found. Run one in the <a href="{{ url_for('sentiment') }}">Sentiment Studio</a>.</p>{% endif %}
+<section class="section graph" style="min-height:70vh">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Analysis history</span><h1 style="font-size:clamp(2rem,4vw,3rem)">Everything you have analysed</h1>
+      <p class="lede">Stored locally in SQLite: the text, predicted sentiment, score, confidence band, model version and timestamp.</p></div>
+
+    <form method="get" class="toolbar reveal" role="search">
+      <div><label for="q">Search text</label><input type="search" id="q" name="q" value="{{ filters.q }}" placeholder="e.g. profit"></div>
+      <div><label for="sentiment">Sentiment</label><select id="sentiment" name="sentiment"><option value="">Any</option>{% for s in ['negative','neutral','positive'] %}<option value="{{ s }}" {{ 'selected' if filters.sentiment == s }}>{{ s }}</option>{% endfor %}</select></div>
+      <div><label for="source">Source</label><select id="source" name="source"><option value="">Single + batch</option>{% for s in ['single','batch'] %}<option value="{{ s }}" {{ 'selected' if filters.source == s }}>{{ s }}</option>{% endfor %}</select></div>
+      <div><button class="btn btn--primary" type="submit">Filter</button></div>
+    </form>
+
+    <div class="row reveal" style="justify-content:space-between;margin-bottom:12px">
+      <p class="mono" style="margin:0;font-size:.85rem">{{ total }} entr{{ 'y' if total == 1 else 'ies' }}</p>
+      {% if total %}<a class="btn btn--small" href="{{ url_for('history_export') }}" download>Export all (CSV)</a>{% endif %}
+    </div>
+
+    {% if rows %}
+    <div class="table-wrap reveal"><table class="table"><thead><tr><th>When (UTC)</th><th>Source</th><th>Sentence</th><th>Sentiment</th><th class="num">Score</th><th>Band</th><th>Key words</th><th>Model</th></tr></thead><tbody>
+      {% for r in rows %}<tr><td class="mono" style="font-size:.8rem;white-space:nowrap">{{ r.created_at.replace('T', ' ')[:16] }}</td><td>{{ r.source }}</td>
+        <td class="cell-text">{{ r.input_text[:180] }}{% if r.input_text|length > 180 %}&hellip;{% endif %}</td><td><span class="badge badge--{{ r.sentiment }}">{{ r.sentiment }}</span></td>
+        <td class="num">{{ '%+.2f'|format(r.score) }}</td><td>{% if r.margin_band %}<span class="badge badge--{{ r.margin_band|lower }}">{{ r.margin_band }}</span>{% endif %}</td>
+        <td class="muted" style="font-size:.85rem">{{ r.key_terms or '' }}</td><td class="mono" style="font-size:.75rem;white-space:nowrap">{{ r.model_id }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="pager"><span>Page {{ page }} of {{ pages }}</span>
+      {% if page > 1 %}<a href="{{ url_for('history', page=page-1, **filters) }}">&larr; Previous</a>{% endif %}
+      {% if page < pages %}<a href="{{ url_for('history', page=page+1, **filters) }}">Next &rarr;</a>{% endif %}</div>
+    <hr class="rule">
+    <form method="post" action="{{ url_for('history_clear') }}" onsubmit="return confirm('Delete ALL analysis history? This cannot be undone.')">
+      <input type="hidden" name="confirm" value="yes"><button class="btn btn--danger btn--small" type="submit">Clear all history</button></form>
+    {% else %}
+    <div class="empty reveal">
+      {% if filters.q or filters.sentiment or filters.source %}<h3>No matches</h3><p class="muted">No saved analyses match these filters.</p><a class="btn btn--small" href="{{ url_for('history') }}">Clear filters</a>
+      {% else %}<h3>No analyses yet</h3><p class="muted">Every sentence and CSV you analyse is saved here, so you can search, filter and export it.</p><a class="btn btn--primary btn--small" href="{{ url_for('sentiment') }}">Open Sentiment Studio</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

@@ -1,14 +1,105 @@
 {% extends "base.html" %}
+{% block title %}Overview{% endblock %}
 {% block content %}
-<h1>Overview</h1>
-{% if model_error %}<p class="error">{{ model_error }}</p>{% endif %}
-{% if meta %}
-<p>Production model: <strong>{{ meta.model_name }}</strong> ({{ model.model_id }}) &mdash; test macro-F1 {{ '%.3f'|format(meta.final_test_metrics.macro_f1) }},
-accuracy {{ '%.3f'|format(meta.final_test_metrics.accuracy) }}</p>
-{% endif %}
-<p>Training corpus: {{ dataset.rows }} sentences. Analyses stored: {{ total }}.</p>
-<table><tr><th>Class</th><th>Corpus %</th><th>Your analyses</th></tr>
-{% for name, d in dataset.distribution.items() %}<tr><td>{{ name }}</td><td>{{ d.percent }}%</td><td>{{ counts[name].count }} ({{ counts[name].percent }}%)</td></tr>{% endfor %}</table>
-<h3>Recent analyses</h3>
-{% if recent %}<ul>{% for r in recent %}<li>{{ r.sentiment }} &mdash; {{ r.input_text[:100] }}</li>{% endfor %}</ul>{% else %}<p>No analyses yet. Try the <a href="{{ url_for('sentiment') }}">Sentiment Studio</a>.</p>{% endif %}
+{% set tm = meta.final_test_metrics if meta else None %}
+<section class="section section--dark graph hero">
+  <div class="container grid grid--split">
+    <div class="reveal">
+      <span class="eyebrow">Financial NLP research platform</span>
+      <h1>Read the <em>tone</em> of financial text, with the working shown.</h1>
+      <p class="lede">FinSight classifies financial news sentences as positive, negative or neutral using a transparent linear model, and reports honestly how well it performs on sentences it has never seen.</p>
+      <div class="row hero__actions">
+        <a class="btn btn--primary" href="{{ url_for('sentiment') }}">Open Sentiment Studio</a>
+        <a class="btn" href="{{ url_for('methodology') }}">Read the methodology</a>
+      </div>
+    </div>
+    <aside class="axes reveal" style="--d:.15s" aria-label="Production model card">
+      {% if meta %}
+      <dl>
+        <dt>model</dt><dd>{{ meta.model_name }}</dd>
+        <dt>features</dt><dd>TF-IDF {{ meta.feature_extraction.ngram_range[0] }}&ndash;{{ meta.feature_extraction.ngram_range[1] }}-grams</dd>
+        <dt>vocabulary</dt><dd class="num">{{ '{:,}'.format(meta.feature_extraction.vocabulary_size) }} terms</dd>
+        <dt>fitted on</dt><dd class="num">{{ '{:,}'.format(meta.training_split.n_train + meta.training_split.n_validation) }} sentences</dd>
+        <dt>selected by</dt><dd>validation macro-F1</dd>
+        <dt>trained</dt><dd>{{ meta.training_date_utc[:10] }}</dd>
+        <dt>seed</dt><dd>{{ meta.random_seed }}</dd>
+      </dl>
+      {% else %}
+      <p class="mono" style="color:var(--gold)">No production model found.<br>Run: python -m experiments.run_experiments</p>
+      {% endif %}
+    </aside>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container">
+    {% if model_error %}<div class="alert alert--error">{{ model_error }}</div>{% endif %}
+    <div class="grid grid--4 keep-2">
+      <div class="kpi reveal"><div class="kpi__value">{% if tm %}<span data-count="{{ tm.macro_f1 }}" data-decimals="3">{{ '%.3f'|format(tm.macro_f1) }}</span>{% else %}&mdash;{% endif %}</div>
+        <div class="kpi__label">Test macro-F1</div><div class="kpi__note">held-out test set, {{ meta.training_split.n_test if meta else '–' }} sentences</div></div>
+      <div class="kpi reveal" style="--d:.08s"><div class="kpi__value">{% if tm %}<span data-count="{{ tm.accuracy }}" data-decimals="3">{{ '%.3f'|format(tm.accuracy) }}</span>{% else %}&mdash;{% endif %}</div>
+        <div class="kpi__label">Test accuracy</div><div class="kpi__note">{% if lab.available %}majority-class baseline: {{ '%.3f'|format(lab.baseline_accuracy) }}{% else %}&nbsp;{% endif %}</div></div>
+      <div class="kpi reveal" style="--d:.16s"><div class="kpi__value"><span data-count="{{ dataset.rows }}">{{ dataset.rows }}</span></div>
+        <div class="kpi__label">Corpus sentences</div><div class="kpi__note">Financial PhraseBank, 50% agreement</div></div>
+      <div class="kpi reveal" style="--d:.24s"><div class="kpi__value"><span data-count="{{ total }}">{{ total }}</span></div>
+        <div class="kpi__label">Analyses stored</div><div class="kpi__note">in your local history</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--paper2">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">The data</span><h2>An imbalanced corpus, and why it matters</h2>
+      <p class="lede">Most sentences in the corpus are neutral. A model that always answered &ldquo;neutral&rdquo; would look decent on accuracy while being useless, so FinSight is judged by <em>macro-F1</em>, which weights all three classes equally.</p></div>
+    <div class="grid grid--2">
+      <div class="card reveal"><div class="card__title">Training corpus: share of sentences</div>
+        <div class="chart-box"><canvas role="img" aria-label="Corpus class distribution" data-chart="doughnut" data-labels='{{ dataset.distribution.keys()|list|tojson }}'
+          data-series='{{ [{"label":"Sentences","data":dataset.distribution.values()|map(attribute="count")|list,"colors":["negative","neutral","positive"]}]|tojson }}' data-options='{"decimals":0}'></canvas></div></div>
+      <div class="card reveal" style="--d:.1s"><div class="card__title">Your analyses: predicted classes</div>
+        {% if total %}
+        <div class="chart-box"><canvas role="img" aria-label="Predicted classes in your history" data-chart="bar" data-labels='{{ counts.keys()|list|tojson }}'
+          data-series='{{ [{"label":"Analyses","data":counts.values()|map(attribute="count")|list,"colors":["negative","neutral","positive"]}]|tojson }}' data-options='{"decimals":0,"legend":false}'></canvas></div>
+        {% else %}<div class="empty"><h3>Nothing analysed yet</h3><p class="muted">Run a sentence through the Studio and its predicted class appears here.</p><a class="btn btn--primary btn--small" href="{{ url_for('sentiment') }}">Analyse a sentence</a></div>{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--dark graph">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">The experiment</span><h2>Six candidates, one fair comparison</h2>
+      <p class="lede">Every model uses the same TF-IDF features, the same split, and the same selection rule. The test set never influenced the choice.</p></div>
+    {% if lab.available %}
+    <div class="card reveal"><div class="card__title">Macro-F1 by model: validation vs held-out test</div>
+      <div class="chart-box chart-box--tall"><canvas role="img" aria-label="Macro F1 by model" data-chart="hbar" data-labels='{{ lab.models|map(attribute="model")|list|tojson }}'
+        data-series='{{ [{"label":"Validation","data":lab.models|map(attribute="val_macro_f1")|list,"color":"copper"},{"label":"Test","data":lab.models|map(attribute="test_macro_f1")|list,"color":"sage"}]|tojson }}'
+        data-options='{"max":1,"decimals":3}'></canvas></div>
+      <p class="note" style="margin-top:14px">Selected: <strong>{{ lab.winner }}</strong>. The top three models are within {{ lab.top3_spread }} points of each other on validation, so small differences should not be over-read. <a href="{{ url_for('model_lab') }}">Open the Model Laboratory</a></p></div>
+    {% else %}<div class="empty"><h3>No experiment results</h3><p>Run <code>python -m experiments.run_experiments</code>.</p></div>{% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">The pipeline</span><h2>How a sentence becomes a score</h2></div>
+    <div class="pipeline reveal">
+      <div class="pipeline__step"><h4>Normalise</h4><p class="muted">Lower-case and tidy whitespace. Numbers, <span class="mono">%</span> and currency symbols are kept because they carry signal.</p></div>
+      <div class="pipeline__step"><h4>Vectorise</h4><p class="muted">TF-IDF over single words and two-word phrases: <span class="formula">tf &times; log(N/df)</span>.</p></div>
+      <div class="pipeline__step"><h4>Score</h4><p class="muted">A linear model computes one score per class: <span class="formula">w<sub>c</sub>&middot;x + b<sub>c</sub></span>. The highest wins.</p></div>
+      <div class="pipeline__step"><h4>Explain</h4><p class="muted">Each word&rsquo;s contribution is its weight times the model coefficient. A margin band shows how reliable such predictions were in validation.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--paper2">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Recent</span><h2>Latest analyses</h2></div>
+    {% if recent %}
+    <div class="table-wrap reveal"><table class="table"><thead><tr><th>Sentence</th><th>Sentiment</th><th>Confidence band</th></tr></thead><tbody>
+      {% for r in recent %}<tr><td class="cell-text">{{ r.input_text[:140] }}{% if r.input_text|length > 140 %}&hellip;{% endif %}</td>
+        <td><span class="badge badge--{{ r.sentiment }}">{{ r.sentiment }}</span></td><td>{% if r.margin_band %}<span class="badge badge--{{ r.margin_band|lower }}">{{ r.margin_band }}</span>{% endif %}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="empty reveal"><h3>No analyses yet</h3><p class="muted">Your history is stored locally in SQLite and appears here.</p></div>{% endif %}
+  </div>
+</section>
 {% endblock %}

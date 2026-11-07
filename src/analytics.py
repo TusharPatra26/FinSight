@@ -5,6 +5,7 @@ Everything the Flask routes need beyond prediction lives here, so routes stay th
 import json
 import re
 from collections import Counter
+from functools import lru_cache
 
 import pandas as pd
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
@@ -142,6 +143,50 @@ def dataset_overview() -> dict:
     words = df["sentence"].str.split().str.len()
     dist = sentiment_distribution(df["label_name"])
     return {"rows": int(len(df)), "distribution": dist, "mean_words": round(float(words.mean()), 1), "median_words": float(words.median())}
+
+
+@lru_cache(maxsize=1)
+def corpus_vocabulary_profile() -> dict:
+    """For the cleaned training corpus: how often each lexicon category appears and the sentiment mix of the
+    sentences containing it (same method as analysis/eda.ipynb, Section F). Association, not causation."""
+    from src import data as D
+    df = D.clean(D.load_processed())
+    tokens = df["sentence"].map(lambda s: set(_WORD.findall(s.lower())))
+    base = sentiment_distribution(df["label_name"])
+    rows = []
+    for cat, words in LEXICON.items():
+        mask = tokens.map(lambda t: bool(t & set(words)))
+        sub = df.loc[mask, "label_name"]
+        mix = sentiment_distribution(sub)
+        rows.append({"category": cat, "sentences": int(mask.sum()), "coverage": round(100 * float(mask.mean()), 1),
+                     "mix": {n: mix[n]["percent"] for n in config.LABEL_NAMES}})
+    return {"baseline": {n: base[n]["percent"] for n in config.LABEL_NAMES}, "categories": rows, "n": int(len(df))}
+
+
+def lab_payload(exp: dict, metadata: dict | None) -> dict:
+    """Shape experiment outputs for the Model Laboratory and dashboard. Everything comes from experiments/results/."""
+    if not exp.get("available"):
+        return {"available": False}
+    m, comp = exp["metrics"], exp["comparison"]
+    ranking = m["ranking_by_validation"]
+    models = [r for n in ranking for r in comp if r["model"] == n]
+    cms = {}
+    for name in ranking:
+        r = m["models"][name]
+        cms[name] = {"title": f"{name} - fitted on train only", "matrix": r["confusion_matrix_test"], "per_class": r["test"]["per_class"],
+                     "accuracy": r["test"]["accuracy"], "macro_f1": r["test"]["macro_f1"]}
+    prod = m["production"]
+    cms["Production"] = {"title": f"Production model ({prod['model']}) - fitted on train+validation", "matrix": prod["confusion_matrix_test"],
+                         "per_class": prod["test_metrics"]["per_class"], "accuracy": prod["test_metrics"]["accuracy"],
+                         "macro_f1": prod["test_metrics"]["macro_f1"]}
+    winner = m["winner"]
+    top3 = [m["models"][n]["validation"]["macro_f1"] for n in ranking[:3]]
+    dummy = next((r for r in comp if r["model"] == "DummyClassifier"), None)
+    return {"available": True, "winner": winner, "ranking": ranking, "models": models, "meta": m["meta"], "confusion": cms,
+            "production": prod, "search": sorted(m["models"][winner]["search"], key=lambda s: (-s["val_macro_f1"], -s["cv_macro_f1_mean"]))[:6],
+            "baseline_accuracy": dummy["test_accuracy"] if dummy else None, "top3_spread": round(100 * (top3[0] - top3[-1]), 1),
+            "bands": (metadata or {}).get("margin_bands"),
+            "band_accuracy_pct": {k: round(100 * v, 1) for k, v in ((metadata or {}).get("margin_bands") or {}).get("accuracy_by_band", {}).items()}}
 
 
 def load_metadata() -> dict:

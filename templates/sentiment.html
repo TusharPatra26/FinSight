@@ -1,32 +1,117 @@
 {% extends "base.html" %}
 {% block title %}Sentiment Studio{% endblock %}
 {% block content %}
-<h1>Sentiment Studio</h1>
-{% if not model %}<p class="error">The model is not available. Run <code>python -m experiments.run_experiments</code> first.</p>{% endif %}
-<h3>Single text</h3>
-<form method="post"><textarea name="text" rows="3" maxlength="2000" placeholder="Paste a financial news sentence">{{ text }}</textarea><br><button>Analyse</button></form>
-{% if single %}
-<h3>Result</h3>
-<p><strong>{{ single.sentiment }}</strong> &mdash; score {{ single.score }}; confidence margin {{ single.margin }} ({{ single.margin_band }} band)</p>
-<p><small>{{ single.score_type_label }}</small></p>
-<table><tr>{% for k, v in single.scores.items() %}<th>{{ k }}</th>{% endfor %}</tr><tr>{% for k, v in single.scores.items() %}<td>{{ v }}</td>{% endfor %}</tr></table>
-{% for w in single.warnings %}<p class="error">{{ w }}</p>{% endfor %}
-<p>Words supporting "{{ single.sentiment }}": {% for t in single.explanation.supporting %}{{ t.term }} ({{ t.weight }}){% if not loop.last %}, {% endif %}{% else %}none{% endfor %}</p>
-<p>Words working against it: {% for t in single.explanation.opposing %}{{ t.term }} ({{ t.weight }}){% if not loop.last %}, {% endif %}{% else %}none{% endfor %}</p>
-<p><small>{{ single.explanation.note }}</small></p>
-{% endif %}
-<h3>CSV batch</h3>
-<form method="post" enctype="multipart/form-data">
-  <input type="file" name="file" accept=".csv"> Text column (optional): <input name="text_column" placeholder="auto-detect"> <button>Analyse CSV</button>
-</form>
-<p><small>CSV with a header row; max 2 MB and 5,000 rows.</small></p>
-{% if batch %}
-<h3>Batch results: {{ batch.filename }}</h3>
-<p>Analysed {{ batch.report.rows_analysed }} of {{ batch.report.rows_in_file }} rows (column "{{ batch.report.text_column }}"; skipped empty {{ batch.report.skipped_empty }}, too long {{ batch.report.skipped_too_long }}).
-<a href="{{ url_for('download_batch', batch_id=batch.batch_id) }}">Download results CSV</a></p>
-<table><tr><th>Class</th><th>Count</th><th>%</th></tr>{% for name, d in batch.summary.distribution.items() %}<tr><td>{{ name }}</td><td>{{ d.count }}</td><td>{{ d.percent }}</td></tr>{% endfor %}</table>
-<table><tr><th>Text</th><th>Sentiment</th><th>Score</th><th>Band</th><th>Key words</th></tr>
-{% for r in batch.results[:50] %}<tr><td>{{ r.text[:120] }}</td><td>{{ r.sentiment }}</td><td>{{ r.score }}</td><td>{{ r.margin_band }}</td><td>{% for t in r.explanation.supporting[:3] %}{{ t.term }}{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>{% endfor %}</table>
-{% if batch.results|length > 50 %}<p>Showing the first 50; the download contains all.</p>{% endif %}
-{% endif %}
+<section class="section graph" style="padding-bottom:40px">
+  <div class="container">
+    <div class="section-head reveal"><span class="eyebrow">Sentiment Studio</span><h1 style="font-size:clamp(2rem,4vw,3rem)">Classify financial text</h1>
+      <p class="lede">Paste one sentence, or upload a CSV of many. You get the predicted tone, the model&rsquo;s scores, a reliability band, and the words that drove the decision.</p></div>
+    {% if not model %}<div class="alert alert--error">The model is not available. Run <code>python -m experiments.run_experiments</code> to create it.</div>{% endif %}
+
+    <div data-tabs class="reveal">
+      <div class="tabs" role="tablist" aria-label="Analysis mode">
+        <button class="tab" role="tab" id="tab-single" aria-controls="panel-single" data-initial="{{ 'true' if mode == 'single' else 'false' }}">Single sentence</button>
+        <button class="tab" role="tab" id="tab-batch" aria-controls="panel-batch" data-initial="{{ 'true' if mode == 'batch' else 'false' }}">CSV batch</button>
+      </div>
+
+      <!-- ===================== SINGLE ===================== -->
+      <div role="tabpanel" id="panel-single" aria-labelledby="tab-single">
+        <form method="post" data-loading="Analysing…" class="stack">
+          <div><label for="text">Financial news sentence</label>
+            <textarea id="text" name="text" maxlength="2000" placeholder="e.g. Operating profit rose to EUR 12.5 mn from EUR 8.1 mn a year earlier." required>{{ text }}</textarea>
+            <div class="counter" id="text-count" aria-live="polite">0 / 2000</div></div>
+          <div class="row"><span class="label" style="margin:0">Try an example</span>
+            <button type="button" class="chip chip--button" data-example="Operating profit rose to EUR 12.5 mn from EUR 8.1 mn in the previous year.">profit rose</button>
+            <button type="button" class="chip chip--button" data-example="The company reported a net loss and sales decreased by 15 % compared with last year.">net loss</button>
+            <button type="button" class="chip chip--button" data-example="The annual general meeting will be held on 5 April at the company's headquarters in Helsinki.">announcement</button></div>
+          <div><button class="btn btn--primary" type="submit"><span>Analyse sentence</span></button></div>
+        </form>
+
+        {% if single %}
+        <div class="card reveal is-visible" id="result" style="margin-top:32px" data-animate>
+          <div class="result-head">
+            <div><div class="card__title">Predicted sentiment</div><div class="verdict verdict--{{ single.sentiment }}">{{ single.sentiment }}</div></div>
+            <div style="text-align:right"><div class="card__title">Reliability band</div>
+              {% if single.margin_band %}<span class="badge badge--{{ single.margin_band|lower }}" style="font-size:.9rem;padding:6px 14px">{{ single.margin_band }} margin</span>{% endif %}</div>
+          </div>
+          <p class="muted" style="margin-top:18px">&ldquo;{{ single.text }}&rdquo;</p>
+          <hr class="rule">
+          <div class="grid grid--2" style="gap:40px">
+            <div>
+              <div class="card__title">Model scores per class</div>
+              {% set scale = ([single.scores.values()|map('abs')|max, 1]|max) %}
+              <div class="scores" data-animate>
+                {% for k, v in single.scores.items() %}
+                <div class="score-row"><span>{{ k }}</span>
+                  <div class="score-track"><div class="score-fill {{ 'pos' if v >= 0 else 'neg' }}" style="width:{{ (v|abs / scale * 50)|round(1) }}%;background:var(--{{ k }})"></div></div>
+                  <span class="num" style="text-align:right">{{ '%+.2f'|format(v) }}</span></div>
+                {% endfor %}
+              </div>
+              <p class="note" style="margin-top:14px">{{ single.score_type_label }}. Higher means the model favours that class. These are not probabilities.</p>
+            </div>
+            <div>
+              <div class="card__title">How reliable are predictions like this?</div>
+              {% if bands and single.margin_band %}
+              <div class="bands">{% for b in ['Low','Medium','High'] %}<div class="band {{ 'is-active' if b == single.margin_band }}">{{ b }}<b class="num">{{ '%.0f'|format(bands.accuracy_by_band[b] * 100) }}%</b></div>{% endfor %}</div>
+              <p class="note">Margin = gap between the top two class scores ({{ '%.2f'|format(single.margin) }} here). Across {{ '{:,}'.format(bands.n_by_band.values()|sum) }} out-of-fold validation sentences, predictions in the <strong>{{ single.margin_band }}</strong> band were correct {{ '%.0f'|format(bands.accuracy_by_band[single.margin_band] * 100) }}% of the time. This is an empirical reliability measure, not a calibrated probability.</p>
+              {% endif %}
+              {% for w in single.warnings %}<div class="alert alert--error" style="margin-top:12px">{{ w }}</div>{% endfor %}
+            </div>
+          </div>
+          <hr class="rule">
+          <div class="card__title">Influential words for &ldquo;{{ single.sentiment }}&rdquo;</div>
+          {% if single.explanation.available %}
+          <p style="margin-bottom:6px"><span class="label">Pushing toward the prediction</span>
+            {% for t in single.explanation.supporting %}<span class="chip chip--for">{{ t.term }} <small>+{{ '%.2f'|format(t.weight) }}</small></span>{% else %}<span class="muted">none</span>{% endfor %}</p>
+          <p><span class="label">Pushing against it</span>
+            {% for t in single.explanation.opposing %}<span class="chip chip--against">{{ t.term }} <small>{{ '%.2f'|format(t.weight) }}</small></span>{% else %}<span class="muted">none</span>{% endfor %}</p>
+          <p class="note">{{ single.explanation.note }}</p>
+          {% else %}<p class="muted">Word-level explanations are not available for this model type.</p>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ===================== BATCH ===================== -->
+      <div role="tabpanel" id="panel-batch" aria-labelledby="tab-batch" hidden>
+        <form method="post" enctype="multipart/form-data" data-loading="Analysing file…" class="stack">
+          <label class="dropzone" data-max-bytes="2097152"><input type="file" name="file" accept=".csv,text/csv" required>
+            <span class="dropzone__title" id="file-name">Drop a CSV file here, or click to browse</span>
+            <span class="field-hint">Header row required &middot; up to 2 MB and 5,000 rows</span></label>
+          <p id="file-error" class="alert alert--error" style="margin:0" role="alert" aria-live="polite" hidden></p>
+          <div class="grid grid--2"><div><label for="text_column">Text column (optional)</label><input type="text" id="text_column" name="text_column" placeholder="auto-detects text, sentence, headline, title&hellip;"></div></div>
+          <div><button class="btn btn--primary" type="submit"><span>Analyse CSV</span></button></div>
+        </form>
+
+        {% if batch %}
+        {% set s = batch.summary %}
+        <div class="card reveal is-visible" id="result" style="margin-top:32px">
+          <div class="result-head"><div><div class="card__title">Batch results</div><h3 style="margin:0">{{ batch.filename }}</h3></div>
+            <a class="btn btn--primary" href="{{ url_for('download_batch', batch_id=batch.batch_id) }}" download>Download results CSV</a></div>
+          <div class="grid grid--4 keep-2" style="margin:28px 0">
+            <div class="kpi"><div class="kpi__value">{{ batch.report.rows_analysed }}</div><div class="kpi__label">Rows analysed</div></div>
+            <div class="kpi"><div class="kpi__value">{{ batch.report.rows_in_file }}</div><div class="kpi__label">Rows in file</div></div>
+            <div class="kpi"><div class="kpi__value">{{ batch.report.skipped_empty + batch.report.skipped_too_long }}</div><div class="kpi__label">Skipped</div><div class="kpi__note">{{ batch.report.skipped_empty }} empty, {{ batch.report.skipped_too_long }} too long</div></div>
+            <div class="kpi"><div class="kpi__value" style="font-size:1.6rem;padding-top:.5rem">{{ batch.report.text_column }}</div><div class="kpi__label">Text column used</div></div>
+          </div>
+          <div class="grid grid--3">
+            <div><div class="card__title">Sentiment mix</div><div class="chart-box chart-box--short"><canvas role="img" aria-label="Batch sentiment mix" data-chart="doughnut" data-labels='{{ s.distribution.keys()|list|tojson }}'
+              data-series='{{ [{"label":"Sentences","data":s.distribution.values()|map(attribute="count")|list,"colors":["negative","neutral","positive"]}]|tojson }}'></canvas></div></div>
+            <div><div class="card__title">Reliability bands</div><div class="chart-box chart-box--short"><canvas role="img" aria-label="Batch reliability bands" data-chart="bar" data-labels='{{ s.margin_bands.keys()|list|tojson }}'
+              data-series='{{ [{"label":"Sentences","data":s.margin_bands.values()|list,"colors":["burgundy","gold","forest"]}]|tojson }}' data-options='{"legend":false}'></canvas></div></div>
+            <div><div class="card__title">Financial vocabulary (% of rows)</div><div class="chart-box chart-box--short"><canvas role="img" aria-label="Financial vocabulary categories" data-chart="hbar" data-labels='{{ s.financial_vocabulary.categories|map(attribute="category")|list|tojson }}'
+              data-series='{{ [{"label":"% of rows","data":s.financial_vocabulary.categories|map(attribute="percent")|list,"color":"copper"}]|tojson }}' data-options='{"suffix":"%","decimals":0,"legend":false}'></canvas></div></div>
+          </div>
+          <hr class="rule">
+          <div class="card__title">First {{ [batch.results|length, 50]|min }} results</div>
+          <div class="table-wrap"><table class="table"><thead><tr><th>Sentence</th><th>Sentiment</th><th class="num">Score</th><th>Band</th><th>Key words</th></tr></thead><tbody>
+            {% for r in batch.results[:50] %}<tr><td class="cell-text">{{ r.text[:160] }}{% if r.text|length > 160 %}&hellip;{% endif %}</td><td><span class="badge badge--{{ r.sentiment }}">{{ r.sentiment }}</span></td>
+              <td class="num">{{ '%+.2f'|format(r.score) }}</td><td>{% if r.margin_band %}<span class="badge badge--{{ r.margin_band|lower }}">{{ r.margin_band }}</span>{% endif %}</td>
+              <td>{% for t in r.explanation.supporting[:3] %}<span class="chip chip--for">{{ t.term }}</span>{% endfor %}</td></tr>{% endfor %}
+          </tbody></table></div>
+          {% if batch.results|length > 50 %}<p class="note" style="margin-top:12px">Showing 50 of {{ batch.results|length }}. The download contains every row.</p>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
 {% endblock %}
