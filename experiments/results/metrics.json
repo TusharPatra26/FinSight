@@ -13,7 +13,7 @@
     ],
     "notes": "Per-candidate test metrics come from models fitted on TRAIN only and are reported after selection. Inference time is measured on the validation set. 'production' is the winner refit on train+validation.",
     "tfidf_fixed": {
-      "preprocessor": "<function normalize_text at 0x00000194AE7DA020>",
+      "preprocessor": "normalize_text",
       "lowercase": "False",
       "token_pattern": "(?u)\\b\\w+\\b|[%$\u20ac\u00a3]",
       "min_df": "2",

@@ -170,7 +170,7 @@ def main() -> None:
                  "tie_breaks": ["CV macro-F1", "inference ms/sentence", "name"],
                  "notes": "Per-candidate test metrics come from models fitted on TRAIN only and are reported after selection. "
                           "Inference time is measured on the validation set. 'production' is the winner refit on train+validation.",
-                 "tfidf_fixed": {k: str(v) for k, v in TFIDF_FIXED.items()}},
+                 "tfidf_fixed": {k: getattr(v, "__name__", str(v)) for k, v in TFIDF_FIXED.items()}},   # function name, not its memory address
         "ranking_by_validation": ranking, "winner": winner,
         "models": results,
         "production": {"model": winner, "fitted_on_rows": len(trval), "test_metrics": final_metrics, "train_time_s": final_train_s,
