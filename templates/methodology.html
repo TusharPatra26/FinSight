@@ -23,11 +23,11 @@
       <div class="table-wrap"><table class="table"><thead><tr><th>Class</th><th class="num">Sentences</th><th class="num">Share</th></tr></thead><tbody>
         {% for k in ['negative','neutral','positive'] %}<tr><td><span class="badge badge--{{ k }}">{{ k }}</span></td><td class="num">{{ '{:,}'.format(cc[k]) }}</td><td class="num">{{ report.class_percentages[k] }}%</td></tr>{% endfor %}
         <tr><td><strong>Total</strong></td><td class="num">{{ '{:,}'.format(report.n_rows) }}</td><td class="num">100%</td></tr></tbody></table></div>
-      <p style="margin-top:14px">Validation found no missing or empty sentences, {{ report.duplicate_sentences_extra_copies }} repeated sentences, and {{ report.sentences_with_conflicting_labels }} sentences carrying <em>conflicting</em> labels. Conflicting sentences were removed and same-label duplicates collapsed, leaving <strong>{{ '{:,}'.format(dataset.rows) }}</strong> sentences. Imbalance is {{ '%.2f'|format(cc.neutral / cc.negative) }} : 1 (neutral : negative). Raw data is preserved untouched in <span class="mono">data/raw/</span>.</p>
+      <p style="margin-top:14px">Validation found no missing or empty sentences, {{ report.duplicate_sentences_extra_copies }} repeated sentences, and {{ report.sentences_with_conflicting_labels }} sentences carrying <em>conflicting</em> labels. Conflicting sentences were removed and same-label duplicates collapsed, leaving <strong>{{ '{:,}'.format(dataset.rows) }}</strong> sentences. Imbalance is {{ '%.2f'|format(cc.neutral / cc.negative) }} : 1 (neutral : negative). Raw data is preserved untouched in <code>data/raw/</code>.</p>
       {% endif %}
 
       <h2 id="eda" class="reveal">What the exploratory analysis found</h2>
-      <p>The full investigation lives in <span class="mono">analysis/eda.ipynb</span> with a written summary in <span class="mono">analysis/eda_report.md</span>. The findings that shaped the design:</p>
+      <p>The full investigation lives in <code>analysis/eda.ipynb</code> with a written summary in <code>analysis/eda_report.md</code>. The findings that shaped the design:</p>
       <ul>
         <li><strong>Imbalance changes what &ldquo;good&rdquo; means.</strong> Always answering &ldquo;neutral&rdquo; scores about 59% accuracy. Models are therefore ranked by <em>macro-F1</em>.</li>
         <li><strong>Length is not a signal.</strong> Mean sentence length is about {{ dataset.mean_words }} words; class differences are statistically detectable but tiny (effect size 0.013).</li>
@@ -83,7 +83,7 @@
 
       <h2 id="cite" class="reveal">Citation and licence</h2>
       <p>Malo, P., Sinha, A., Korhonen, P., Wallenius, J., &amp; Takala, P. (2014). Good debt or bad debt: Detecting semantic orientations in economic texts. <em>Journal of the Association for Information Science and Technology</em>, 65.</p>
-      <p>Data licence: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 &mdash; <strong>non-commercial use only</strong>. Source: <span class="mono">huggingface.co/datasets/takala/financial_phrasebank</span>. Charts use Chart.js (MIT); type is set in IBM Plex (SIL Open Font License 1.1).</p>
+      <p>Data licence: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 &mdash; <strong>non-commercial use only</strong>. Source: <code>huggingface.co/datasets/takala/financial_phrasebank</code>. Charts use Chart.js (MIT); type is set in IBM Plex (SIL Open Font License 1.1).</p>
     </div>
   </div>
 </section>

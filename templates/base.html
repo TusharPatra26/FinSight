@@ -13,7 +13,7 @@
   <header class="nav">
     <div class="container nav__inner">
       <a class="logo" href="{{ url_for('index') }}"><span class="logo__mark">&Sigma;</span>FinSight</a>
-      <button class="nav__toggle" aria-expanded="false" aria-controls="nav-links">MENU</button>
+      <button class="nav__toggle" aria-expanded="false" aria-controls="nav-links">Menu</button>
       <ul class="nav__links" id="nav-links">
         {% for endpoint, label in [('index','Overview'),('sentiment','Sentiment Studio'),('market_pulse','Market Pulse'),('model_lab','Model Lab'),('history','History'),('methodology','Methodology')] %}
         <li><a href="{{ url_for(endpoint) }}" {% if active == endpoint %}aria-current="page"{% endif %}>{{ label }}</a></li>
@@ -82,7 +82,7 @@
 
       <div class="footer__bottom">
         <span>A research tool, not investment advice. It reads the tone of text; it does not predict prices.</span>
-        <span class="mono">Runs locally &middot; No external APIs</span>
+        <span>Runs locally &middot; No external APIs</span>
         <a href="#main">Back to top &#8593;</a>
       </div>
     </div>

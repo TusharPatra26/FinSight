@@ -303,6 +303,22 @@ def test_ibm_plex_is_bundled_and_scoped_to_every_page_except_the_overview(client
         assert f'class="{cls}"' in client.get(path).data.decode(), path
 
 
+def test_ui_has_no_monospace_or_all_caps_label_styles(client):
+    """Regression: small tracked-out ALL-CAPS monospace labels made the UI look machine-generated and were removed everywhere."""
+    import re
+    css = client.get("/static/css/style.css").data.decode()
+    assert "--font-mono" not in css and "monospace" not in css.lower()
+    assert not re.search(r"text-transform:\s*uppercase", css), "no ALL-CAPS labels"
+    assert not re.search(r"letter-spacing:\s*0?\.\d", css), "no positive (tracked-out) letter-spacing"
+    assert re.search(r"button,\s*input,\s*select,\s*textarea\s*\{\s*font-family:\s*inherit", css), "buttons must inherit the page font, not default to Arial"
+    for path in ("/", "/sentiment", "/market-pulse", "/model-lab", "/history", "/methodology", "/nope"):
+        page = client.get(path).data.decode()
+        assert not re.search(r'class="[^"]*\bmono\b', page), path
+        assert not re.search(r">\s*[A-Z][A-Z ]{3,}\s*<", page), f"{path}: literal ALL-CAPS text"
+    js = client.get("/static/js/main.js").data.decode() + client.get("/static/js/charts.js").data.decode()
+    assert "toUpperCase" not in js and "monospace" not in js.lower()
+
+
 def test_footer_is_structured_informative_and_dateless(client):
     import re
     page = client.get("/history").data.decode()

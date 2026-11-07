@@ -4,7 +4,7 @@
 <section class="section graph" style="padding-bottom:40px">
   <div class="container">
     <div class="section-head reveal"><span class="eyebrow">Model Laboratory</span><h1 style="font-size:clamp(2rem,4vw,3rem)">Six candidates, compared fairly</h1>
-      <p class="lede">All numbers on this page are read from the experiment outputs in <span class="mono">experiments/results/</span>. Models were tuned on a training/validation split; the held-out test set was scored only after the winner was chosen.</p></div>
+      <p class="lede">All numbers on this page are read from the experiment outputs in <code>experiments/results/</code>. Models were tuned on a training/validation split; the held-out test set was scored only after the winner was chosen.</p></div>
     {% if not lab.available %}
     <div class="empty"><h3>No experiment results found</h3><p>Run <code>python -m experiments.run_experiments</code> to generate them.</p></div>
     {% else %}
@@ -82,7 +82,7 @@
     <div class="section-head reveal"><span class="eyebrow">Hyperparameters</span><h2>Best settings tried for {{ lab.winner }}</h2>
       <p class="lede">Every grid point was scored by 5-fold cross-validation on the training split and by validation macro-F1. Validation macro-F1 chose the setting.</p></div>
     <div class="table-wrap reveal"><table class="table"><thead><tr><th>Setting</th><th class="num">CV macro-F1</th><th class="num">Validation macro-F1</th><th class="num">Validation accuracy</th></tr></thead><tbody>
-      {% for s in lab.search %}<tr class="{{ 'is-winner' if loop.first }}"><td class="mono" style="font-size:.82rem">{% for k, v in s.params.items() %}{{ k.split('__')[-1] }}={{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+      {% for s in lab.search %}<tr class="{{ 'is-winner' if loop.first }}"><td class="tnum" style="font-size:.92rem">{% for k, v in s.params.items() %}{{ k.split('__')[-1] }}={{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
         <td class="num">{{ '%.3f'|format(s.cv_macro_f1_mean) }}</td><td class="num">{{ '%.3f'|format(s.val_macro_f1) }}</td><td class="num">{{ '%.3f'|format(s.val_accuracy) }}</td></tr>{% endfor %}
     </tbody></table></div>
     <div class="card reveal" style="margin-top:32px"><h4>Reading these results honestly</h4>

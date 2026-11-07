@@ -25,7 +25,7 @@
         <dt>seed</dt><dd>{{ meta.random_seed }}</dd>
       </dl>
       {% else %}
-      <p class="mono" style="color:var(--gold)">No production model found.<br>Run: python -m experiments.run_experiments</p>
+      <p style="color:var(--gold)">No production model found.<br>Run: python -m experiments.run_experiments</p>
       {% endif %}
     </aside>
   </div>
@@ -83,7 +83,7 @@
   <div class="container">
     <div class="section-head reveal"><span class="eyebrow">The pipeline</span><h2>How a sentence becomes a score</h2></div>
     <div class="pipeline reveal">
-      <div class="pipeline__step"><h4>Normalise</h4><p class="muted">Lower-case and tidy whitespace. Numbers, <span class="mono">%</span> and currency symbols are kept because they carry signal.</p></div>
+      <div class="pipeline__step"><h4>Normalise</h4><p class="muted">Lower-case and tidy whitespace. Numbers, <code>%</code> and currency symbols are kept because they carry signal.</p></div>
       <div class="pipeline__step"><h4>Vectorise</h4><p class="muted">TF-IDF over single words and two-word phrases: <span class="formula">tf &times; log(N/df)</span>.</p></div>
       <div class="pipeline__step"><h4>Score</h4><p class="muted">A linear model computes one score per class: <span class="formula">w<sub>c</sub>&middot;x + b<sub>c</sub></span>. The highest wins.</p></div>
       <div class="pipeline__step"><h4>Explain</h4><p class="muted">Each word&rsquo;s contribution is its weight times the model coefficient. A margin band shows how reliable such predictions were in validation.</p></div>

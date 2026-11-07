@@ -14,16 +14,16 @@
     </form>
 
     <div class="row reveal" style="justify-content:space-between;margin-bottom:12px">
-      <p class="mono" style="margin:0;font-size:.85rem">{{ total }} entr{{ 'y' if total == 1 else 'ies' }}</p>
+      <p class="muted" style="margin:0">{{ total }} entr{{ 'y' if total == 1 else 'ies' }}</p>
       {% if total %}<a class="btn btn--small" href="{{ url_for('history_export') }}" download>Export all (CSV)</a>{% endif %}
     </div>
 
     {% if rows %}
     <div class="table-wrap reveal"><table class="table"><thead><tr><th>When (UTC)</th><th>Source</th><th>Sentence</th><th>Sentiment</th><th class="num">Score</th><th>Band</th><th>Key words</th><th>Model</th></tr></thead><tbody>
-      {% for r in rows %}<tr><td class="mono" style="font-size:.8rem;white-space:nowrap">{{ r.created_at.replace('T', ' ')[:16] }}</td><td>{{ r.source }}</td>
+      {% for r in rows %}<tr><td class="tnum" style="white-space:nowrap">{{ r.created_at.replace('T', ' ')[:16] }}</td><td>{{ r.source }}</td>
         <td class="cell-text">{{ r.input_text[:180] }}{% if r.input_text|length > 180 %}&hellip;{% endif %}</td><td><span class="badge badge--{{ r.sentiment }}">{{ r.sentiment }}</span></td>
         <td class="num">{{ '%+.2f'|format(r.score) }}</td><td>{% if r.margin_band %}<span class="badge badge--{{ r.margin_band|lower }}">{{ r.margin_band }}</span>{% endif %}</td>
-        <td class="muted" style="font-size:.85rem">{{ r.key_terms or '' }}</td><td class="mono" style="font-size:.75rem;white-space:nowrap">{{ r.model_id }}</td></tr>{% endfor %}
+        <td class="muted" style="font-size:.85rem">{{ r.key_terms or '' }}</td><td style="font-size:.88rem;white-space:nowrap">{{ r.model_id }}</td></tr>{% endfor %}
     </tbody></table></div>
     <div class="pager"><span>Page {{ page }} of {{ pages }}</span>
       {% if page > 1 %}<a href="{{ url_for('history', page=page-1, **filters) }}">&larr; Previous</a>{% endif %}
